@@ -1,0 +1,1 @@
+export function exec(command: string, args: string[], stdin: string, cwd: string, detached: boolean, env: { [key: string]: string }): Promise<string>;

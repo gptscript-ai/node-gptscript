@@ -1,0 +1,33 @@
+{
+  "name": "node-gptscript",
+  "version": "0.0.0-semver",
+  "description": "Run gptscript in node.js",
+  "main": "lib/gptscript.js",
+  "bin": {
+    "gptscript": "bin/gptscript"
+  },
+  "scripts": {
+    "pretest": "npm run install-binary",
+    "install-binary": "node scripts/install-binary.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "postinstall": "node scripts/install-binary.js",
+    "build": "rm -r lib && swc src -d lib --strip-leading-paths && copyfiles src/*.d.ts lib -f"
+  },
+  "keywords": [
+    "gptscript",
+    "gpt",
+    "AI"
+  ],
+  "author": "cloudnautique",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "adm-zip": "^0.5.10",
+    "node-downloader-helper": "^2.1.9",
+    "tar": "^6.2.0"
+  },
+  "devDependencies": {
+    "copyfiles": "^2.4.1",
+    "@swc/cli": "^0.3.9",
+    "@swc/core": "^1.4.2"
+  }
+}
