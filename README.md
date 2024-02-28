@@ -10,7 +10,7 @@ To use this module, you need to have Node.js installed on your system. Then, you
 npm install gptscript
 ```
 
-This will install the gptscript binary in the `node_modules/node-gptscript/bin` directory.
+This will install the gptscript binary in the `node_modules/gptscript/bin` directory.
 
 You can opt out of this behavior by setting the `NODE_GPTSCRIPT_SKIP_INSTALL_BINARY=true` environment variable before running `npm install`.
 
@@ -35,7 +35,7 @@ Lists all the available built-in tools.
 **Usage:**
 
 ```javascript
-const gptScript = require('node-gptscript');
+const gptScript = require('gptscript');
 
 async function listTools() {
     const tools = await gptScript.listTools();
@@ -50,7 +50,7 @@ Lists all the available models, returns a list.
 **Usage:**
 
 ```javascript
-const gptScript = require('node-gptscript');
+const gptScript = require('gptscript');
 
 async function listModels() {
     let models = [];
@@ -77,9 +77,13 @@ Neither option is required, and the defaults will reduce the number of calls mad
 **Usage:**
 
 ```javascript
-const gptScript = require('node-gptscript');
+const gptScript = require('gptscript');
 
-gptScript.exec('').then(response => {
+const prompt = `
+who was the president of the united states in 1928?
+`;
+
+gptScript.exec(prompt).then(response => {
     console.log(response);
 }).catch(error => {
     console.error(error);
@@ -103,7 +107,7 @@ Neither option is required, and the defaults will reduce the number of calls mad
 The script is relative to the callers source directory.
 
 ```javascript
-const gptScript = require('node-gptscript');
+const gptScript = require('gptscript');
 
 const opts = {
     cache: false,
@@ -113,6 +117,92 @@ async function execFile() {
     try {
         const out = await foo.execFile('./hello.gpt', "--input World", opts);
         console.log(out);
+    } catch (e) {
+        console.error(e);
+    }
+}
+```
+
+### streamExec
+
+Executes a gptscript with optional input and arguments, and returns the output streams.
+
+**Options:**
+
+These are optional options that can be passed to the `exec` function.
+Neither option is required, and the defaults will reduce the number of calls made to the Model API.
+
+- `cache`: Enable or disable caching.
+- `cacheDir`: Specify the cache directory.
+
+**Usage:**
+
+```javascript
+const gptScript = require('gptscript');
+
+const opts = {
+    cache: false,
+};
+
+const prompt = `
+who was the president of the united states in 1928?
+`;
+
+async function streamExec() {
+    try {
+        const { stdout, stderr, promise } = await gptScript.streamExec(prompt, opts);
+        if (stdout) {
+            stdout.on('data', data => {
+                console.log(`system: ${data}`);
+            });
+        }
+        if (stderr) {
+            stderr.on('data', data => {
+                console.log(`system: ${data}`);
+            });
+        }
+        await promise;
+    } catch (e) {
+        console.error(e);
+    }
+}
+```
+
+### streamExecFile
+
+**Options:**
+
+These are optional options that can be passed to the `exec` function.
+Neither option is required, and the defaults will reduce the number of calls made to the Model API.
+
+- `cache`: Enable or disable caching.
+- `cacheDir`: Specify the cache directory.
+
+**Usage:**
+
+The script is relative to the callers source directory.
+
+```javascript
+const gptScript = require('gptscript');
+
+const opts = {
+    cache: false,
+};
+
+async function streamExecFile() {
+    try {
+        const { stdout, stderr, promise } = await gptScript.streamExecFile('./test.gpt', "--testin how high is that there mouse?", opts);
+        if (stdout) {
+            stdout.on('data', data => {
+                console.log(`system: ${data}`);
+            });
+        }
+        if (stderr) {
+            stderr.on('data', data => {
+                console.log(`system: ${data}`);
+            });
+        }
+        await promise;
     } catch (e) {
         console.error(e);
     }

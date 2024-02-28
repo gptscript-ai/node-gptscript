@@ -1,4 +1,4 @@
-const execfn = require('./exec');
+const execlib = require('./exec');
 const path = require('path');
 
 function getCmdPath() {
@@ -39,8 +39,17 @@ async function run(args = [], stdin, gptPath = './', input = "", env = process.e
     try {
         const cmdPath = getCmdPath();
         const cmdArgs = cliArgBuilder(args, stdin, gptPath, input);
-        const stdout = await execfn(cmdPath, cmdArgs, stdin, './', false, env);
-        return stdout;
+        return await execlib.exec(cmdPath, cmdArgs, stdin, './', false, env);
+    } catch (error) {
+        throw error;
+    }
+}
+
+async function streamRun(args = [], stdin, gptPath = './', input = "", env = process.env) {
+    try {
+        const cmdPath = getCmdPath();
+        const cmdArgs = cliArgBuilder(args, stdin, gptPath, input);
+        return await execlib.streamExec(cmdPath, cmdArgs, stdin, './', false, env);
     } catch (error) {
         throw error;
     }
@@ -67,8 +76,7 @@ async function listModels() {
 async function exec(prompt, opts = {}) {
     const args = toArgs(opts);
     try {
-        const res = await run(args, prompt);
-        return res;
+        return await run(args, prompt);
     } catch (error) {
         throw error;
     }
@@ -84,9 +92,34 @@ async function execFile(scriptPath, input = "", opts = {}) {
     }
 }
 
+async function streamExec(prompt, opts = {}) {
+    const args = toArgs(opts);
+    try {
+        return await streamRun(args, prompt);
+    } catch (error) {
+        throw error;
+    }
+}
+
+async function streamExecFile(scriptPath, input = "", opts = {}) {
+    const args = toArgs(opts);
+    try {
+        const { stdout, stderr, promise } = await streamRun(args, undefined, scriptPath, input);
+        return {
+            stdout: stdout,
+            stderr: stderr,
+            promise: promise
+        };
+    } catch (error) {
+        throw error;
+    }
+}
+
 module.exports = {
     listTools: listTools,
     listModels: listModels,
     exec: exec,
     execFile: execFile,
+    streamExec: streamExec,
+    streamExecFile: streamExecFile
 }

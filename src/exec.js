@@ -46,4 +46,41 @@ async function exec(command, args, stdin, cwd = './', detached, env) {
     return stdout;
 }
 
-module.exports = exec
+async function streamExec(command, args, stdin, cwd = './', detached, env) {
+    const spawnOptions = { maxBuffer: TEN_MEBIBYTE, cwd, detached, env, stdio: ['pipe', 'inherit', 'inherit'] };
+
+    const child = childProcess.spawn(command, args, spawnOptions);
+
+    // Write to stdin if provided
+    if (stdin && child.stdin) {
+        child.stdin.setEncoding('utf-8');
+        child.stdin.write(stdin);
+        child.stdin.end();
+    }
+
+    // Wait for the child process to exit
+    return {
+        stdout: child.stdout,
+        stderr: child.stderr,
+        promise: new Promise((resolve, reject) => {
+            child.on('close', code => {
+                if (code !== 0) {
+                    reject(new Error(`Child process exited with code ${code}`));
+                } else {
+                    resolve();
+                }
+            });
+
+            // Handle process error event
+            child.on('error', error => {
+                reject(error);
+            });
+        })
+    };
+}
+
+
+module.exports = {
+    exec: exec,
+    streamExec: streamExec
+}

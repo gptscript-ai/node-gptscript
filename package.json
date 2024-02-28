@@ -1,5 +1,5 @@
 {
-  "name": "node-gptscript",
+  "name": "gptscript",
   "version": "0.0.0-semver",
   "description": "Run gptscript in node.js",
   "main": "lib/gptscript.js",
@@ -11,7 +11,7 @@
     "install-binary": "node scripts/install-binary.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "postinstall": "node scripts/install-binary.js",
-    "build": "rm -r lib && swc src -d lib --strip-leading-paths && copyfiles src/*.d.ts lib -f"
+    "build": "rm -rf lib && swc src -d lib --strip-leading-paths && copyfiles src/*.d.ts lib -f"
   },
   "keywords": [
     "gptscript",
