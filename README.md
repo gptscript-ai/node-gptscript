@@ -7,10 +7,10 @@ This module provides a set of functions to interact with gptscripts. It allows f
 To use this module, you need to have Node.js installed on your system. Then, you can install the module via npm:
 
 ```bash
-npm install gptscript
+npm install @gptscript-ai/gptscript
 ```
 
-This will install the gptscript binary in the `node_modules/gptscript/bin` directory.
+This will install the gptscript binary in the `node_modules/@gptscript-ai/gptscript/bin` directory.
 
 You can opt out of this behavior by setting the `NODE_GPTSCRIPT_SKIP_INSTALL_BINARY=true` environment variable before running `npm install`.
 
@@ -35,7 +35,7 @@ Lists all the available built-in tools.
 **Usage:**
 
 ```javascript
-const gptScript = require('gptscript');
+const gptScript = require('@gptscript-ai/gptscript');
 
 async function listTools() {
     const tools = await gptScript.listTools();
@@ -50,7 +50,7 @@ Lists all the available models, returns a list.
 **Usage:**
 
 ```javascript
-const gptScript = require('gptscript');
+const gptScript = require('@gptscript-ai/gptscript');
 
 async function listModels() {
     let models = [];
@@ -77,7 +77,7 @@ Neither option is required, and the defaults will reduce the number of calls mad
 **Usage:**
 
 ```javascript
-const gptScript = require('gptscript');
+const gptScript = require('@gptscript-ai/gptscript');
 
 const prompt = `
 who was the president of the united states in 1928?
@@ -107,7 +107,7 @@ Neither option is required, and the defaults will reduce the number of calls mad
 The script is relative to the callers source directory.
 
 ```javascript
-const gptScript = require('gptscript');
+const gptScript = require('@gptscript-ai/gptscript');
 
 const opts = {
     cache: false,
@@ -138,7 +138,8 @@ Neither option is required, and the defaults will reduce the number of calls mad
 **Usage:**
 
 ```javascript
-const gptScript = require('gptscript');
+const gptScript = require('@gptscript-ai/gptscript');
+
 
 const opts = {
     cache: false,
@@ -183,7 +184,7 @@ Neither option is required, and the defaults will reduce the number of calls mad
 The script is relative to the callers source directory.
 
 ```javascript
-const gptScript = require('gptscript');
+const gptScript = require('@gptscript-ai/gptscript');
 
 const opts = {
     cache: false,
