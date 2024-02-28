@@ -1,8 +1,12 @@
 {
-  "name": "gptscript",
-  "version": "0.0.0-semver",
+  "name": "@gptscript-ai/gptscript",
+  "version": "0.1.0",
   "description": "Run gptscript in node.js",
   "main": "lib/gptscript.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gptscript-ai/node-gptscript.git"
+  },
   "bin": {
     "gptscript": "bin/gptscript"
   },
@@ -18,7 +22,7 @@
     "gpt",
     "AI"
   ],
-  "author": "cloudnautique",
+  "author": "Bill Maxwell <bill@acorn.io>",
   "license": "Apache-2.0",
   "dependencies": {
     "adm-zip": "^0.5.10",
