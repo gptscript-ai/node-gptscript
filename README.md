@@ -21,7 +21,7 @@ To use the module and run gptscripts, you need to first set the OPENAI_API_KEY e
 To ensure it is working properly, you can run the following command:
 
 ```bash
-npm exec gptscript https://get.gptscript.ai/echo.gpt --input 'Hello, World!'
+npm exec -c "gptscript https://get.gptscript.ai/echo.gpt --input 'Hello, World!'"
 ```
 
 you will see "Hello, World!" in the output of the command.

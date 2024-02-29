@@ -47,7 +47,7 @@ async function exec(command, args, stdin, cwd = './', detached, env) {
 }
 
 async function streamExec(command, args, stdin, cwd = './', detached, env) {
-    const spawnOptions = { maxBuffer: TEN_MEBIBYTE, cwd, detached, env, stdio: ['pipe', 'inherit', 'inherit'] };
+    const spawnOptions = { maxBuffer: TEN_MEBIBYTE, cwd, detached, env, stdio: ['pipe', 'pipe', 'pipe'] };
 
     const child = childProcess.spawn(command, args, spawnOptions);
 
