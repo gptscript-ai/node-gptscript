@@ -43,6 +43,8 @@ const platform = process.platform;
 let arch = process.arch;
 if (process.platform === 'darwin') {
     arch = 'universal';
+} else if (process.arch === 'x64') {
+    arch = 'amd64';
 }
 
 let gptscriptBinaryName = 'gptscript';
