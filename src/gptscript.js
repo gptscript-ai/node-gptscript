@@ -11,7 +11,7 @@ const optToArg = {
 }
 
 function toArgs(opts) {
-    let args = [];
+    let args = ["--quiet=false"];
     for (const [key, value] of Object.entries(opts)) {
         if (optToArg[key]) {
             args.push(optToArg[key] + value);
@@ -93,7 +93,6 @@ async function execFile(scriptPath, input = "", opts = {}) {
 }
 
 async function streamExec(prompt, opts = {}) {
-    opts['quiet'] = false;
     const args = toArgs(opts);
     try {
         return await streamRun(args, prompt);
@@ -103,7 +102,6 @@ async function streamExec(prompt, opts = {}) {
 }
 
 async function streamExecFile(scriptPath, input = "", opts = {}) {
-    opts['quiet'] = false;
     const args = toArgs(opts);
     try {
         const { stdout, stderr, promise } = await streamRun(args, undefined, scriptPath, input);
