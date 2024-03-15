@@ -58,25 +58,25 @@ async function streamExec(command, args, stdin, cwd = './', detached, env) {
         child.stdin.end();
     }
 
-    // Wait for the child process to exit
-    return {
-        stdout: child.stdout,
-        stderr: child.stderr,
-        promise: new Promise((resolve, reject) => {
-            child.on('close', code => {
-                if (code !== 0) {
-                    reject(new Error(`Child process exited with code ${code}`));
-                } else {
-                    resolve();
-                }
-            });
+    if (child.stdout && child.stdout) {
+        return {
+            stdout: child.stdout,
+            stderr: child.stderr,
+            promise: new Promise((resolve, reject) => {
+                child.on('close', code => {
+                    if (code !== 0) {
+                        reject(new Error(`Child process exited with code ${code}`));
+                    } else {
+                        resolve();
+                    }
+                });
 
-            // Handle process error event
-            child.on('error', error => {
-                reject(error);
-            });
-        })
-    };
+                child.on('error', error => {
+                    reject(error);
+                });
+            })
+        };
+    }
 }
 
 

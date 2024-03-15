@@ -7,8 +7,8 @@ const fs = require('fs');
 const path = require('path');
 const AdmZip = require('adm-zip');
 const tar = require('tar');
-
-// Existing code...
+const util = require('util');
+const exec = util.promisify(require('child_process').exec);
 
 async function downloadAndExtract(url, saveDirectory) {
     const dlh = new DownloaderHelper(url, saveDirectory);
@@ -39,6 +39,17 @@ async function downloadAndExtract(url, saveDirectory) {
     });
 }
 
+async function versions_match() {
+    try {
+        const command = path.join(outputDir, gptscriptBinaryName) + ' --version';
+        const { stdout } = await exec(command);
+        return stdout.toString().includes(gptscript_info.version);
+    } catch (err) {
+        console.error('Error checking gptscript version:', err);
+        return false;
+    }
+}
+
 const platform = process.platform;
 let arch = process.arch;
 if (process.platform === 'darwin') {
@@ -55,7 +66,7 @@ if (process.platform === 'win32') {
 const gptscript_info = {
     name: "gptscript",
     url: "https://github.com/gptscript-ai/gptscript/releases/download/",
-    version: "v0.1.5"
+    version: "v0.2.1"
 }
 
 const pltfm = {
@@ -88,17 +99,29 @@ if (!fs.existsSync(outputDir)) {
     console.info(`${outputDir} directory was created`)
 }
 
-if (fileExist(path.join(outputDir, gptscriptBinaryName))) {
-    console.log('gptscript is already installed')
-    process.exit(0)
+async function needToInstall() {
+    if (fileExist(path.join(outputDir, gptscriptBinaryName))) {
+        console.log('gptscript is installed...')
+        const versions = await versions_match();
+        if (versions) {
+            console.log('gptscript version is up to date...exiting')
+            process.exit(0);
+        }
+    }
 }
+(async () => {
+    await needToInstall();
+    if (process.env.NODE_GPTSCRIPT_SKIP_INSTALL_BINARY === 'true') {
+        console.info('Skipping binary download');
+        process.exit(0);
+    }
 
-if (process.env.NODE_GPTSCRIPT_SKIP_INSTALL_BINARY === 'true') {
-    console.info('Skipping binary download');
-    process.exit(0);
-}
+    console.log(`Downloading and extracting gptscript binary from ${url}...`);
+    try {
+        downloadAndExtract(url, outputDir)
+    } catch (error) {
+        console.error('Error downloading and extracting:', error)
+    }
+})();
 
-console.log(`Downloading and extracting gptscript binary from ${url}...`);
-downloadAndExtract(url, outputDir)
-    .then(() => console.log('Download and extraction completed.'))
-    .catch((error) => console.error('Error downloading and extracting:', error));
+

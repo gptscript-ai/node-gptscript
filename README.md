@@ -35,10 +35,10 @@ Lists all the available built-in tools.
 **Usage:**
 
 ```javascript
-const gptScript = require('@gptscript-ai/gptscript');
+const gptscript = require('@gptscript-ai/gptscript');
 
 async function listTools() {
-    const tools = await gptScript.listTools();
+    const tools = await gptscript.listTools();
     console.log(tools);
 }
 ```
@@ -50,12 +50,12 @@ Lists all the available models, returns a list.
 **Usage:**
 
 ```javascript
-const gptScript = require('@gptscript-ai/gptscript');
+const gptscript = require('@gptscript-ai/gptscript');
 
 async function listModels() {
     let models = [];
     try {
-        models = await gptScript.listModels();
+        models = await gptscript.listModels();
     } catch (error) {
         console.error(error);
     }
@@ -77,17 +77,18 @@ Neither option is required, and the defaults will reduce the number of calls mad
 **Usage:**
 
 ```javascript
-const gptScript = require('@gptscript-ai/gptscript');
+const gptscript = require('@gptscript-ai/gptscript');
 
-const prompt = `
-who was the president of the united states in 1928?
-`;
-
-gptScript.exec(prompt).then(response => {
-    console.log(response);
-}).catch(error => {
-    console.error(error);
+const t = new gptscript.Tool({
+    instructions: "who was the president of the united states in 1928?"
 });
+
+try {
+    const response = await gptscript.exec(t);
+    console.log(response);
+} catch (error) {
+    console.error(error);
+}
 ```
 
 ### execFile
@@ -107,7 +108,7 @@ Neither option is required, and the defaults will reduce the number of calls mad
 The script is relative to the callers source directory.
 
 ```javascript
-const gptScript = require('@gptscript-ai/gptscript');
+const gptscript = require('@gptscript-ai/gptscript');
 
 const opts = {
     cache: false,
@@ -138,30 +139,28 @@ Neither option is required, and the defaults will reduce the number of calls mad
 **Usage:**
 
 ```javascript
-const gptScript = require('@gptscript-ai/gptscript');
-
+const gptscript = require('@gptscript-ai/gptscript');
 
 const opts = {
     cache: false,
 };
 
-const prompt = `
-who was the president of the united states in 1928?
-`;
+const t = new gptscript.Tool({
+    instructions: "who was the president of the united states in 1928?"
+});
 
 async function streamExec() {
     try {
-        const { stdout, stderr, promise } = await gptScript.streamExec(prompt, opts);
-        if (stdout) {
-            stdout.on('data', data => {
-                console.log(`system: ${data}`);
-            });
-        }
-        if (stderr) {
-            stderr.on('data', data => {
-                console.log(`system: ${data}`);
-            });
-        }
+        const { stdout, stderr, promise } = await gptscript.streamExec(prompt, opts);
+
+        stdout.on('data', data => {
+            console.log(`system: ${data}`);
+        });
+
+        stderr.on('data', data => {
+            console.log(`system: ${data}`);
+        });
+
         await promise;
     } catch (e) {
         console.error(e);
@@ -184,7 +183,7 @@ Neither option is required, and the defaults will reduce the number of calls mad
 The script is relative to the callers source directory.
 
 ```javascript
-const gptScript = require('@gptscript-ai/gptscript');
+const gptscript = require('@gptscript-ai/gptscript');
 
 const opts = {
     cache: false,
@@ -192,23 +191,46 @@ const opts = {
 
 async function streamExecFile() {
     try {
-        const { stdout, stderr, promise } = await gptScript.streamExecFile('./test.gpt', "--testin how high is that there mouse?", opts);
-        if (stdout) {
-            stdout.on('data', data => {
-                console.log(`system: ${data}`);
-            });
-        }
-        if (stderr) {
-            stderr.on('data', data => {
-                console.log(`system: ${data}`);
-            });
-        }
+        const { stdout, stderr, promise } = await gptscript.streamExecFile('./test.gpt', "--testin how high is that there mouse?", opts);
+
+        stdout.on('data', data => {
+            console.log(`system: ${data}`);
+        });
+
+        stderr.on('data', data => {
+            console.log(`system: ${data}`);
+        });
+
         await promise;
     } catch (e) {
         console.error(e);
     }
 }
 ```
+
+## Types
+
+### Tool Parameters
+
+| Argument          | Type           | Default     | Description                                                                                   |
+|-------------------|----------------|-------------|-----------------------------------------------------------------------------------------------|
+| name              | string         | `""`        | The name of the tool. Optional only on the first tool if there are multiple tools defined.                                                                         |
+| description       | string         | `""`        | A brief description of what the tool does, this is important for explaining to the LLM when it should be used.                                                    |
+| tools             | array          | `[]`        | An array of tools that the current tool might depend on or use.                               |
+| maxTokens         | number/undefined | `undefined` | The maximum number of tokens to be used. Prefer `undefined` for uninitialized or optional values. |
+| model             | string         | `""`        | The model that the tool uses, if applicable.                                                  |
+| cache             | boolean        | `true`      | Whether caching is enabled for the tool.                                                      |
+| temperature       | number/undefined | `undefined` | The temperature setting for the model, affecting randomness. `undefined` for default behavior. |
+| args              | object         | `{}`        | Additional arguments specific to the tool, described by key-value pairs.                      |
+| internalPrompt    | string         | `""`        | An internal prompt used by the tool, if any.                                                  |
+| instructions      | string         | `""`        | Instructions on how to use the tool.                                                          |
+| jsonResponse      | boolean        | `false`     | Whether the tool returns a JSON response instead of plain text. You must include the word 'json' in the body of the prompt                               |
+
+### FreeForm Parameters
+
+| Argument  | Type   | Default | Description                           |
+|-----------|--------|---------|---------------------------------------|
+| content   | string | `""`    | This is a multi-line string that contains the  entire contents of a valid gptscript file|
 
 ## License
 
