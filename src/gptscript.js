@@ -1,5 +1,6 @@
 const execlib = require('./exec');
 const path = require('path');
+const tools = require('./tool');
 
 function getCmdPath() {
     return path.join(__dirname, '..', 'bin', 'gptscript');
@@ -20,6 +21,25 @@ function toArgs(opts) {
     return args;
 }
 
+function getToolString(tool) {
+    let toolString;
+
+    if (Array.isArray(tool)) {
+        toolString = tool.map(singleTool => {
+            if (!(singleTool instanceof tools.Tool || singleTool instanceof tools.FreeForm)) {
+                throw new TypeError("Each tool must be an instance of Tool or FreeForm.");
+            }
+            return singleTool.toString();
+        }).join('\n---\n');
+    } else {
+        if (!(tool instanceof tools.Tool || tool instanceof tools.FreeForm)) {
+            throw new TypeError("The tool must be an instance of Tool or FreeForm.");
+        }
+        toolString = tool.toString();
+    }
+    return toolString;
+}
+
 function cliArgBuilder(args, stdin, gptPath, input) {
     let returnArgs = []
     returnArgs.push(...args);
@@ -35,84 +55,54 @@ function cliArgBuilder(args, stdin, gptPath, input) {
     return returnArgs;
 }
 
-async function run(args = [], stdin, gptPath = './', input = "", env = process.env) {
-    try {
-        const cmdPath = getCmdPath();
-        const cmdArgs = cliArgBuilder(args, stdin, gptPath, input);
-        return await execlib.exec(cmdPath, cmdArgs, stdin, './', false, env);
-    } catch (error) {
-        throw error;
-    }
+function run(args = [], stdin, gptPath = './', input = "", env = process.env) {
+    const cmdPath = getCmdPath();
+    const cmdArgs = cliArgBuilder(args, stdin, gptPath, input);
+
+    return execlib.exec(cmdPath, cmdArgs, stdin, './', false, env);
 }
 
-async function streamRun(args = [], stdin, gptPath = './', input = "", env = process.env) {
-    try {
-        const cmdPath = getCmdPath();
-        const cmdArgs = cliArgBuilder(args, stdin, gptPath, input);
-        return await execlib.streamExec(cmdPath, cmdArgs, stdin, './', false, env);
-    } catch (error) {
-        throw error;
-    }
+function streamRun(args = [], stdin, gptPath = './', input = "", env = process.env) {
+    const cmdPath = getCmdPath();
+    const cmdArgs = cliArgBuilder(args, stdin, gptPath, input);
+
+    return execlib.streamExec(cmdPath, cmdArgs, stdin, './', false, env);
 }
 
-async function listTools() {
-    try {
-        const tools = await run(['--list-tools']);
-        return tools;
-    } catch (error) {
-        throw error;
-    }
+function listTools() {
+    return run(['--list-tools']);
+}
+
+function version() {
+    return run(['--version']);
 }
 
 async function listModels() {
-    try {
-        const models = await run(['--list-models']);
-        return models.trim().split('\n');
-    } catch (error) {
-        throw error;
-    }
+    const models = await run(['--list-models']);
+    return models.trim().split('\n');
 }
 
-async function exec(prompt, opts = {}) {
+async function exec(tool, opts = {}) {
     const args = toArgs(opts);
-    try {
-        return await run(args, prompt);
-    } catch (error) {
-        throw error;
-    }
+    const toolString = getToolString(tool);
+    return await run(args, toolString);
 }
 
-async function execFile(scriptPath, input = "", opts = {}) {
+function execFile(scriptPath, input = "", opts = {}) {
     const args = toArgs(opts);
-    try {
-        const res = await run(args, undefined, scriptPath, input);
-        return res;
-    } catch (error) {
-        throw error;
-    }
+    return run(args, undefined, scriptPath, input);
 }
 
-async function streamExec(prompt, opts = {}) {
+function streamExec(tool, opts = {}) {
     const args = toArgs(opts);
-    try {
-        return await streamRun(args, prompt);
-    } catch (error) {
-        throw error;
-    }
+    const toolString = getToolString(tool);
+
+    return streamRun(args, toolString);
 }
 
-async function streamExecFile(scriptPath, input = "", opts = {}) {
+function streamExecFile(scriptPath, input = "", opts = {}) {
     const args = toArgs(opts);
-    try {
-        const { stdout, stderr, promise } = await streamRun(args, undefined, scriptPath, input);
-        return {
-            stdout: stdout,
-            stderr: stderr,
-            promise: promise
-        };
-    } catch (error) {
-        throw error;
-    }
+    return streamRun(args, undefined, scriptPath, input);
 }
 
 module.exports = {
@@ -121,5 +111,8 @@ module.exports = {
     exec: exec,
     execFile: execFile,
     streamExec: streamExec,
-    streamExecFile: streamExecFile
+    streamExecFile: streamExecFile,
+    version: version,
+    Tool: tools.Tool,
+    FreeForm: tools.FreeForm
 }
