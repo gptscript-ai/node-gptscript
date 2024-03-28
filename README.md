@@ -151,7 +151,7 @@ const t = new gptscript.Tool({
 
 async function streamExec() {
     try {
-        const { stdout, stderr, promise } = await gptscript.streamExec(prompt, opts);
+        const { stdout, stderr, promise } = await gptscript.streamExec(t, opts);
 
         stdout.on('data', data => {
             console.log(`system: ${data}`);
