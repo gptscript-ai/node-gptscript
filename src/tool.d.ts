@@ -8,7 +8,7 @@ interface ToolOptions {
     cache?: boolean;
     temperature?: number | undefined;
     args?: Record<string, any>;
-    internalPrompt?: string;
+    internalPrompt?: boolean;
     instructions?: string;
     jsonResponse?: boolean;
 }
@@ -28,7 +28,7 @@ export class Tool {
     cache: boolean;
     temperature: number | undefined;
     args: Record<string, any>;
-    internalPrompt: string;
+    internalPrompt: boolean;
     instructions: string;
     jsonResponse: boolean;
 
