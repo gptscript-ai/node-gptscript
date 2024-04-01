@@ -222,7 +222,7 @@ async function streamExecFile() {
 | cache             | boolean        | `true`      | Whether caching is enabled for the tool.                                                      |
 | temperature       | number/undefined | `undefined` | The temperature setting for the model, affecting randomness. `undefined` for default behavior. |
 | args              | object         | `{}`        | Additional arguments specific to the tool, described by key-value pairs.                      |
-| internalPrompt    | string         | `""`        | An internal prompt used by the tool, if any.                                                  |
+| internalPrompt    | boolean  | `false`        | An internal prompt used by the tool, if any.                                                  |
 | instructions      | string         | `""`        | Instructions on how to use the tool.                                                          |
 | jsonResponse      | boolean        | `false`     | Whether the tool returns a JSON response instead of plain text. You must include the word 'json' in the body of the prompt                               |
 
