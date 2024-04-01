@@ -8,7 +8,7 @@ class Tool {
         cache = true,
         temperature = undefined,
         args = {},
-        internalPrompt = "",
+        internalPrompt = false,
         instructions = "",
         jsonResponse = false,
     } = {}) {
