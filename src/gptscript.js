@@ -7,7 +7,7 @@ function getCmdPath() {
 }
 
 const optToArg = {
-    cache: "--cache=",
+    cache: "--disable-cache=",
     cacheDir: "--cache-dir=",
 }
 
@@ -15,7 +15,11 @@ function toArgs(opts) {
     let args = ["--quiet=false"];
     for (const [key, value] of Object.entries(opts)) {
         if (optToArg[key]) {
-            args.push(optToArg[key] + value);
+            if (key === "cache") {
+                args.push(optToArg[key] + !value);
+            } else {
+                args.push(optToArg[key] + value);
+            }
         }
     }
     return args;
