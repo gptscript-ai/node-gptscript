@@ -3,6 +3,9 @@ const path = require('path');
 const tools = require('./tool');
 
 function getCmdPath() {
+    if (process.env.GPTSCRIPT_BIN) {
+        return process.env.GPTSCRIPT_BIN;
+    }
     return path.join(__dirname, '..', 'bin', 'gptscript');
 }
 
@@ -73,6 +76,13 @@ function streamRun(args = [], stdin, gptPath = './', input = "", env = process.e
     return execlib.streamExec(cmdPath, cmdArgs, stdin, './', false, env);
 }
 
+function streamRunWithEvents(args = [], stdin, gptPath = './', input = "", env = process.env) {
+    const cmdPath = getCmdPath();
+    const cmdArgs = cliArgBuilder(args, stdin, gptPath, input);
+
+    return execlib.streamExecWithEvents(cmdPath, cmdArgs, stdin, './', env);
+}
+
 function listTools() {
     return run(['--list-tools']);
 }
@@ -104,9 +114,22 @@ function streamExec(tool, opts = {}) {
     return streamRun(args, toolString);
 }
 
+function streamExecWithEvents(tool, opts = {}) {
+    const args = toArgs(opts);
+    const toolString = getToolString(tool);
+
+    return streamRunWithEvents(args, toolString);
+}
+
 function streamExecFile(scriptPath, input = "", opts = {}) {
     const args = toArgs(opts);
     return streamRun(args, undefined, scriptPath, input);
+}
+
+function streamExecFileWithEvents(scriptPath, input = "", opts = {}) {
+    const args = toArgs(opts);
+
+    return streamRunWithEvents(args, undefined, scriptPath, input);
 }
 
 module.exports = {
@@ -115,7 +138,9 @@ module.exports = {
     exec: exec,
     execFile: execFile,
     streamExec: streamExec,
+    streamExecWithEvents: streamExecWithEvents,
     streamExecFile: streamExecFile,
+    streamExecFileWithEvents: streamExecFileWithEvents,
     version: version,
     Tool: tools.Tool,
     FreeForm: tools.FreeForm

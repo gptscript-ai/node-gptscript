@@ -58,6 +58,38 @@ describe('gptscript module', () => {
         expect(err).toContain("system: ");
     });
 
+    test('streamExecWithEvents executes a prompt correctly', async () => {
+        let out = "";
+        let err = "";
+        let event = "";
+        const t = new gptscript.Tool({
+            instructions: "who was the president of the united states in 1928?"
+        });
+        const opts = {
+            cache: false
+        }
+
+        try {
+            const { stdout, stderr, events, promise } = await gptscript.streamExecWithEvents(t, opts);
+            stdout.on('data', data => {
+                out += `system: ${data}`;
+            });
+            stderr.on('data', data => {
+                err += `system: ${data}`;
+            });
+            events.on('data', data => {
+                event += `events: ${data}`;
+            })
+            await promise;
+        } catch (e) {
+            console.error(e);
+        }
+
+        expect(out).toContain("Calvin Coolidge");
+        expect(err).toContain("system: ");
+        expect(event).toContain("events: ");
+    });
+
     describe('execFile with test.gpt fixture', () => {
         test('should execute test.gpt correctly', async () => {
             const testGptPath = path.join(__dirname, 'fixtures', 'test.gpt');
@@ -96,6 +128,36 @@ describe('gptscript module', () => {
 
         expect(out).toContain("Calvin Coolidge");
         expect(err).toContain("system: ");
+    });
+
+    test('streamExecFileWithEvents executes a prompt correctly', async () => {
+        let out = "";
+        let err = "";
+        let event = "";
+        const testGptPath = path.join(__dirname, 'fixtures', 'test.gpt');
+        const opts = {
+            cache: false
+        }
+
+        try {
+            const { stdout, stderr, events, promise } = await gptscript.streamExecFileWithEvents(testGptPath, opts);
+            stdout.on('data', data => {
+                out += `system: ${data}`;
+            });
+            stderr.on('data', data => {
+                err += `system: ${data}`;
+            });
+            events.on('data', data => {
+                event += `events: ${data}`;
+            })
+            await promise;
+        } catch (e) {
+            console.error(e);
+        }
+
+        expect(out).toContain("Calvin Coolidge");
+        expect(err).toContain("system: ");
+        expect(event).toContain("events: ");
     });
 
     test('exec of multiple tools', async () => {
