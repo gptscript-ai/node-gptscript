@@ -168,6 +168,54 @@ async function streamExec() {
 }
 ```
 
+### streamExecWithEvents
+
+Executes a gptscript with optional input and arguments, and returns the output and event streams.
+
+**Options:**
+
+These are optional options that can be passed to the `exec` function.
+Neither option is required, and the defaults will reduce the number of calls made to the Model API.
+
+- `cache`: Enable or disable caching.
+- `cacheDir`: Specify the cache directory.
+
+**Usage:**
+
+```javascript
+const gptscript = require('@gptscript-ai/gptscript');
+
+const opts = {
+    cache: false,
+};
+
+const t = new gptscript.Tool({
+    instructions: "who was the president of the united states in 1928?"
+});
+
+async function streamExecWithEvents() {
+    try {
+        const { stdout, stderr, events, promise } = await gptscript.streamExecWithEvents(t, opts);
+
+        stdout.on('data', data => {
+            console.log(`system: ${data}`);
+        });
+
+        stderr.on('data', data => {
+            console.log(`system: ${data}`);
+        });
+
+        events.on('data', data => {
+            console.log(`events: ${data}`);
+        });
+
+        await promise;
+    } catch (e) {
+        console.error(e);
+    }
+}
+```
+
 ### streamExecFile
 
 **Options:**
@@ -199,6 +247,50 @@ async function streamExecFile() {
 
         stderr.on('data', data => {
             console.log(`system: ${data}`);
+        });
+
+        await promise;
+    } catch (e) {
+        console.error(e);
+    }
+}
+```
+
+### streamExecFileWithEvents
+
+**Options:**
+
+These are optional options that can be passed to the `exec` function.
+Neither option is required, and the defaults will reduce the number of calls made to the Model API.
+
+- `cache`: Enable or disable caching.
+- `cacheDir`: Specify the cache directory.
+
+**Usage:**
+
+The script is relative to the callers source directory.
+
+```javascript
+const gptscript = require('@gptscript-ai/gptscript');
+
+const opts = {
+    cache: false,
+};
+
+async function streamExecFileWithEvents() {
+    try {
+        const { stdout, stderr, events, promise } = await gptscript.streamExecFileWithEvents('./test.gpt', "--testin how high is that there mouse?", opts);
+
+        stdout.on('data', data => {
+            console.log(`system: ${data}`);
+        });
+
+        stderr.on('data', data => {
+            console.log(`system: ${data}`);
+        });
+
+        events.on('data', data => {
+            console.log(`event: ${data}`);
         });
 
         await promise;
