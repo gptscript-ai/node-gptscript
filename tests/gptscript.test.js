@@ -103,6 +103,20 @@ describe('gptscript module', () => {
                 fail('execFile threw an unexpected error.');
             }
         });
+
+        test('should execute test.gpt correctly when chdir is set', async () => {
+            const testGptPath = path.join(__dirname, 'fixtures');
+
+            try {
+                // By changing the directory here, we should be able to find the test.gpt file without prepending the path.
+                const result = await gptscript.execFile('test.gpt', null, {chdir: testGptPath});
+                expect(result).toBeDefined(); // Replace with more specific assertions based on your expectations
+                expect(result).toContain("Calvin Coolidge");
+            } catch (error) {
+                console.error(error);
+                fail('execFile threw an unexpected error.');
+            }
+        });
     });
 
     test('streamExecFile executes a prompt correctly', async () => {
