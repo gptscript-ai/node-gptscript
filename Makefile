@@ -16,6 +16,8 @@ release:
 	git tag -a "$(VERSION)" -m "Release $(VERSION)"
 	# Push the tag to remote repository
 	git push origin "$(VERSION)"
+	# Install
+	npm install
 	# Publish to npm
 	npm run build && npm publish --access public
 

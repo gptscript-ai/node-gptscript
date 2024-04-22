@@ -26,6 +26,16 @@ npm exec -c "gptscript https://get.gptscript.ai/echo.gpt --input 'Hello, World!'
 
 you will see "Hello, World!" in the output of the command.
 
+## Options
+
+These are optional options that can be passed to the various `exec` functions.
+None of the options is required, and the defaults will reduce the number of calls made to the Model API.
+
+- `cache`: Enable or disable caching. Default (true).
+- `cacheDir`: Specify the cache directory.
+- `quiet`: No output logging
+- `chdir`: Change current working directory
+
 ## Functions
 
 ### listTools
@@ -66,16 +76,6 @@ async function listModels() {
 
 Executes a prompt with optional arguments.
 
-**Options:**
-
-These are optional options that can be passed to the `exec` function.
-Neither option is required, and the defaults will reduce the number of calls made to the Model API.
-
-- `cache`: Enable or disable caching. Default (true).
-- `cacheDir`: Specify the cache directory.
-
-**Usage:**
-
 ```javascript
 const gptscript = require('@gptscript-ai/gptscript');
 
@@ -93,19 +93,7 @@ try {
 
 ### execFile
 
-Executes a GPT script file with optional input and arguments.
-
-**Options:**
-
-These are optional options that can be passed to the `exec` function.
-Neither option is required, and the defaults will reduce the number of calls made to the Model API.
-
-- `cache`: Enable or disable caching.
-- `cacheDir`: Specify the cache directory.
-
-**Usage:**
-
-The script is relative to the callers source directory.
+Executes a GPT script file with optional input and arguments. The script is relative to the callers source directory.
 
 ```javascript
 const gptscript = require('@gptscript-ai/gptscript');
@@ -127,16 +115,6 @@ async function execFile() {
 ### streamExec
 
 Executes a gptscript with optional input and arguments, and returns the output streams.
-
-**Options:**
-
-These are optional options that can be passed to the `exec` function.
-Neither option is required, and the defaults will reduce the number of calls made to the Model API.
-
-- `cache`: Enable or disable caching.
-- `cacheDir`: Specify the cache directory.
-
-**Usage:**
 
 ```javascript
 const gptscript = require('@gptscript-ai/gptscript');
@@ -171,16 +149,6 @@ async function streamExec() {
 ### streamExecWithEvents
 
 Executes a gptscript with optional input and arguments, and returns the output and event streams.
-
-**Options:**
-
-These are optional options that can be passed to the `exec` function.
-Neither option is required, and the defaults will reduce the number of calls made to the Model API.
-
-- `cache`: Enable or disable caching.
-- `cacheDir`: Specify the cache directory.
-
-**Usage:**
 
 ```javascript
 const gptscript = require('@gptscript-ai/gptscript');
@@ -218,16 +186,6 @@ async function streamExecWithEvents() {
 
 ### streamExecFile
 
-**Options:**
-
-These are optional options that can be passed to the `exec` function.
-Neither option is required, and the defaults will reduce the number of calls made to the Model API.
-
-- `cache`: Enable or disable caching.
-- `cacheDir`: Specify the cache directory.
-
-**Usage:**
-
 The script is relative to the callers source directory.
 
 ```javascript
@@ -257,16 +215,6 @@ async function streamExecFile() {
 ```
 
 ### streamExecFileWithEvents
-
-**Options:**
-
-These are optional options that can be passed to the `exec` function.
-Neither option is required, and the defaults will reduce the number of calls made to the Model API.
-
-- `cache`: Enable or disable caching.
-- `cacheDir`: Specify the cache directory.
-
-**Usage:**
 
 The script is relative to the callers source directory.
 

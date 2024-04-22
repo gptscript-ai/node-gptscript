@@ -12,6 +12,8 @@ function getCmdPath() {
 const optToArg = {
     cache: "--disable-cache=",
     cacheDir: "--cache-dir=",
+    quiet: "--quiet=",
+    chdir: "--chdir=",
 }
 
 function toArgs(opts) {
