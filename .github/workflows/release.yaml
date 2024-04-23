@@ -1,4 +1,4 @@
-name: release
+name: Publish to NPM
 
 on:
   push:
@@ -15,9 +15,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 21
-      - name: Set package version
-        run: |
-          sed -i 's/  "version": "%VERSION%",/  "version": "${{ github.ref_name }}",/' package.json
       - name : Install dependencies
         run: npm install
       - name: Publish release
