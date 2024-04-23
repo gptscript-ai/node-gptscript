@@ -1,0 +1,26 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 21
+      - name: Set package version
+        run: |
+          sed -i 's/  "version": "%VERSION%",/  "version": "${{ github.ref_name }}",/' package.json
+      - name : Install dependencies
+        run: npm install
+      - name: Publish release
+        run: npm run build && npm publish --access public
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

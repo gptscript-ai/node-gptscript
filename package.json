@@ -1,6 +1,6 @@
 {
   "name": "@gptscript-ai/gptscript",
-  "version": "0.5.0",
+  "version": "%VERSION%",
   "description": "Run gptscript in node.js",
   "main": "lib/gptscript.js",
   "repository": {
