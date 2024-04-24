@@ -1,18 +1,14 @@
-name: test
+name: Run Tests
+
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - README.md
-  pull_request_target:
-    types:
-      - labeled
-      - unlabeled
-    branches:
-      - main
-    paths-ignore:
-      - README.md
+  workflow_call:
+    inputs:
+      git_ref:
+        required: true
+        type: string
+    secrets:
+      OPENAI_API_KEY:
+        required: true
 
 jobs:
   check-perms:

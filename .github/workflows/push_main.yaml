@@ -1,0 +1,15 @@
+name: Push Main
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - README.md
+
+jobs:
+  run-tests:
+    uses: gptscript-ai/node-gptscript/.github/workflows/run_tests.yaml@main
+    with:
+      git_ref: ''
+    secrets:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
