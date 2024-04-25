@@ -1,6 +1,7 @@
 const execlib = require('./exec');
-const path = require('path');
+const reqlib = require('./request');
 const tools = require('./tool');
+const path = require('path');
 
 function getCmdPath() {
     if (process.env.GPTSCRIPT_BIN) {
@@ -10,7 +11,7 @@ function getCmdPath() {
 }
 
 const optToArg = {
-    cache: "--disable-cache=",
+    disableCache: "--disable-cache=",
     cacheDir: "--cache-dir=",
     quiet: "--quiet=",
     chdir: "--chdir=",
@@ -20,11 +21,7 @@ function toArgs(opts) {
     let args = ["--quiet=false"];
     for (const [key, value] of Object.entries(opts)) {
         if (optToArg[key]) {
-            if (key === "cache") {
-                args.push(optToArg[key] + !value);
-            } else {
-                args.push(optToArg[key] + value);
-            }
+            args.push(optToArg[key] + value);
         }
     }
     return args;
@@ -34,12 +31,7 @@ function getToolString(tool) {
     let toolString;
 
     if (Array.isArray(tool)) {
-        toolString = tool.map(singleTool => {
-            if (!(singleTool instanceof tools.Tool || singleTool instanceof tools.FreeForm)) {
-                throw new TypeError("Each tool must be an instance of Tool or FreeForm.");
-            }
-            return singleTool.toString();
-        }).join('\n---\n');
+        toolString = toolArrayToContents(tool);
     } else {
         if (!(tool instanceof tools.Tool || tool instanceof tools.FreeForm)) {
             throw new TypeError("The tool must be an instance of Tool or FreeForm.");
@@ -47,6 +39,15 @@ function getToolString(tool) {
         toolString = tool.toString();
     }
     return toolString;
+}
+
+function toolArrayToContents(toolArray) {
+    return toolArray.map(singleTool => {
+        if (!(singleTool instanceof tools.Tool || singleTool instanceof tools.FreeForm)) {
+            throw new TypeError("Each tool must be an instance of Tool or FreeForm.");
+        }
+        return singleTool.toString();
+    }).join('\n---\n');
 }
 
 function cliArgBuilder(args, stdin, gptPath, input) {
@@ -85,31 +86,57 @@ function streamRunWithEvents(args = [], stdin, gptPath = './', input = "", env =
     return execlib.streamExecWithEvents(cmdPath, cmdArgs, stdin, './', env);
 }
 
-function listTools() {
-    return run(['--list-tools']);
+async function listTools() {
+    if (process.env['GPTSCRIPT_URL']) {
+        return await reqlib.makeRequest('list-tools');
+    }
+    return await run(['--list-tools']);
 }
 
-function version() {
-    return run(['--version']);
+async function version() {
+    if (process.env['GPTSCRIPT_URL']) {
+        return await reqlib.makeRequest('version');
+    }
+    return await run(['--version']);
 }
 
 async function listModels() {
+    if (process.env['GPTSCRIPT_URL']) {
+        return await reqlib.makeRequest('list-models');
+    }
     const models = await run(['--list-models']);
     return models.trim().split('\n');
 }
 
 async function exec(tool, opts = {}) {
+    if (process.env['GPTSCRIPT_URL']) {
+        if (Array.isArray(tool)) {
+            return await reqlib.makeRequest('run-tool', {content: toolArrayToContents(tool)}, opts);
+        }
+        return await reqlib.makeRequest('run-tool', tool, opts);
+    }
+
     const args = toArgs(opts);
     const toolString = getToolString(tool);
     return await run(args, toolString);
 }
 
-function execFile(scriptPath, input = "", opts = {}) {
+async function execFile(scriptPath, input = "", opts = {}) {
+    if (process.env['GPTSCRIPT_URL']) {
+        return await reqlib.makeRequest('run-file', {file: scriptPath, input: input}, opts);
+    }
     const args = toArgs(opts);
-    return run(args, undefined, scriptPath, input);
+    return await run(args, undefined, scriptPath, input);
 }
 
 function streamExec(tool, opts = {}) {
+    if (process.env['GPTSCRIPT_URL']) {
+        if (Array.isArray(tool)) {
+            return reqlib.makeRequest('run-tool', {content: toolArrayToContents(tool)}, opts);
+        }
+        return reqlib.makeStreamRequest('run-tool-stream', tool, opts);
+    }
+
     const args = toArgs(opts);
     const toolString = getToolString(tool);
 
@@ -117,6 +144,13 @@ function streamExec(tool, opts = {}) {
 }
 
 function streamExecWithEvents(tool, opts = {}) {
+    if (process.env['GPTSCRIPT_URL']) {
+        if (Array.isArray(tool)) {
+            return reqlib.makeRequest('run-tool', {content: toolArrayToContents(tool)}, opts);
+        }
+        return reqlib.makeStreamRequestWithEvents('run-tool-stream-with-events', tool, opts);
+    }
+
     const args = toArgs(opts);
     const toolString = getToolString(tool);
 
@@ -124,11 +158,19 @@ function streamExecWithEvents(tool, opts = {}) {
 }
 
 function streamExecFile(scriptPath, input = "", opts = {}) {
+    if (process.env['GPTSCRIPT_URL']) {
+        return reqlib.makeStreamRequest('run-file-stream', {file: scriptPath, input: input}, opts);
+    }
+
     const args = toArgs(opts);
     return streamRun(args, undefined, scriptPath, input);
 }
 
 function streamExecFileWithEvents(scriptPath, input = "", opts = {}) {
+    if (process.env['GPTSCRIPT_URL']) {
+        return reqlib.makeStreamRequestWithEvents('run-file-stream-with-events', {file: scriptPath, input: input}, opts);
+    }
+
     const args = toArgs(opts);
 
     return streamRunWithEvents(args, undefined, scriptPath, input);
