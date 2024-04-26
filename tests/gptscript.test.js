@@ -174,22 +174,47 @@ describe('gptscript module', () => {
         expect(event).toContain("events: ");
     });
 
-    test('exec of multiple tools', async () => {
-        const t0 = new gptscript.Tool({
-            tools: ["ask"],
-            instructions: "Only use the ask tool to ask who was the president of the united states in 1928?"
-        });
-        const t1 = new gptscript.Tool({
-            name: "ask",
-            description: "This tool is used to ask a question",
-            args: {
-                question: "The question to ask"
-            },
-            instructions: "${question}"
-        });
+    describe('exec with multiple tools', () => {
+        test('multiple tools', async () => {
+            const t0 = new gptscript.Tool({
+                tools: ["ask"],
+                instructions: "Only use the ask tool to ask who was the president of the united states in 1928?"
+            });
+            const t1 = new gptscript.Tool({
+                name: "ask",
+                description: "This tool is used to ask a question",
+                args: {
+                    question: "The question to ask"
+                },
+                instructions: "${question}"
+            });
 
-        const response = await gptscript.exec([t0, t1]);
-        expect(response).toBeDefined();
-        expect(response).toContain("Calvin Coolidge");
-    }, 30000);
+            const response = await gptscript.exec([t0, t1]);
+            expect(response).toBeDefined();
+            expect(response).toContain("Calvin Coolidge");
+        }, 30000);
+
+        test('with sub tool', async () => {
+            const t0 = new gptscript.Tool({
+                tools: ["ask"],
+                instructions: "Only use the ask tool to ask who was the president of the united states in 1928?"
+            });
+            const t1 = new gptscript.Tool({
+                name: "other",
+                instructions: "Who was the president of the united states in 1986?"
+            });
+            const t2 = new gptscript.Tool({
+                name: "ask",
+                description: "This tool is used to ask a question",
+                args: {
+                    question: "The question to ask"
+                },
+                instructions: "${question}"
+            });
+
+            const response = await gptscript.exec([t0, t1, t2], {subTool: 'other'});
+            expect(response).toBeDefined();
+            expect(response).toContain("Ronald Reagan");
+        }, 30000);
+    });
 });
