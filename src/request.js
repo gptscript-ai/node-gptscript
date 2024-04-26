@@ -51,7 +51,7 @@ async function makeStreamRequest(path, tool, opts = {}) {
 		const req = http.request(options, (res) => {
 			res.on('data', (chunk) => {
 				const c = chunk.toString().replace(/^(data: )/,"").trim();
-				if (c === 'DONE') {
+				if (c === '[DONE]') {
 				} else if (c.startsWith('{"stderr":')) {
 					stderr.push(JSON.parse(c).stderr);
 				} else {
@@ -100,7 +100,7 @@ async function makeStreamRequestWithEvents(path, tool, opts = {}) {
 		const req = http.request(options, (res) => {
 			res.on('data', (chunk) => {
 				const c = chunk.toString().replace(/^(data: )/,"").trim();
-				if (c === 'DONE') {
+				if (c === '[DONE]') {
 				} else if (c.startsWith('{"stderr":')) {
 					stderr.push(JSON.parse(c).stderr);
 				} else if (c.startsWith('{"stdout":')) {

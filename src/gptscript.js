@@ -15,6 +15,7 @@ const optToArg = {
     cacheDir: "--cache-dir=",
     quiet: "--quiet=",
     chdir: "--chdir=",
+    subTool: "--sub-tool=",
 }
 
 function toArgs(opts) {
