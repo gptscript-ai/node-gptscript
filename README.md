@@ -35,6 +35,7 @@ None of the options is required, and the defaults will reduce the number of call
 - `cacheDir`: Specify the cache directory.
 - `quiet`: No output logging
 - `chdir`: Change current working directory
+- `subTool`: Use tool of this name, not the first tool
 
 ## Functions
 
