@@ -75,8 +75,7 @@ async function streamExecWithEvents(command, args, stdin, cwd = './', env) {
         const namedPipe = '\\\\.\\pipe\\gptscript-' + Math.floor(Math.random() * 1000000);
         events = new stream.Readable({
             encoding: 'utf-8',
-            read() {
-            }
+            read() {}
         });
 
          server = net.createServer((connection) => {

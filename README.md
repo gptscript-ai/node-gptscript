@@ -31,7 +31,7 @@ you will see "Hello, World!" in the output of the command.
 These are optional options that can be passed to the various `exec` functions.
 None of the options is required, and the defaults will reduce the number of calls made to the Model API.
 
-- `cache`: Enable or disable caching. Default (true).
+- `disableCache`: Enable or disable caching. Default (true).
 - `cacheDir`: Specify the cache directory.
 - `quiet`: No output logging
 - `chdir`: Change current working directory
@@ -99,7 +99,7 @@ Executes a GPT script file with optional input and arguments. The script is rela
 const gptscript = require('@gptscript-ai/gptscript');
 
 const opts = {
-    cache: false,
+    disableCache: false,
 };
 
 async function execFile() {
@@ -120,7 +120,7 @@ Executes a gptscript with optional input and arguments, and returns the output s
 const gptscript = require('@gptscript-ai/gptscript');
 
 const opts = {
-    cache: false,
+    disableCache: false,
 };
 
 const t = new gptscript.Tool({
@@ -154,7 +154,7 @@ Executes a gptscript with optional input and arguments, and returns the output a
 const gptscript = require('@gptscript-ai/gptscript');
 
 const opts = {
-    cache: false,
+    disableCache: false,
 };
 
 const t = new gptscript.Tool({
@@ -192,7 +192,7 @@ The script is relative to the callers source directory.
 const gptscript = require('@gptscript-ai/gptscript');
 
 const opts = {
-    cache: false,
+    disableCache: false,
 };
 
 async function streamExecFile() {
@@ -222,7 +222,7 @@ The script is relative to the callers source directory.
 const gptscript = require('@gptscript-ai/gptscript');
 
 const opts = {
-    cache: false,
+    disableCache: false,
 };
 
 async function streamExecFileWithEvents() {
@@ -252,19 +252,19 @@ async function streamExecFileWithEvents() {
 
 ### Tool Parameters
 
-| Argument          | Type           | Default     | Description                                                                                   |
-|-------------------|----------------|-------------|-----------------------------------------------------------------------------------------------|
-| name              | string         | `""`        | The name of the tool. Optional only on the first tool if there are multiple tools defined.                                                                         |
-| description       | string         | `""`        | A brief description of what the tool does, this is important for explaining to the LLM when it should be used.                                                    |
-| tools             | array          | `[]`        | An array of tools that the current tool might depend on or use.                               |
-| maxTokens         | number/undefined | `undefined` | The maximum number of tokens to be used. Prefer `undefined` for uninitialized or optional values. |
-| model             | string         | `""`        | The model that the tool uses, if applicable.                                                  |
-| cache             | boolean        | `true`      | Whether caching is enabled for the tool.                                                      |
-| temperature       | number/undefined | `undefined` | The temperature setting for the model, affecting randomness. `undefined` for default behavior. |
-| args              | object         | `{}`        | Additional arguments specific to the tool, described by key-value pairs.                      |
-| internalPrompt    | boolean  | `false`        | An internal prompt used by the tool, if any.                                                  |
-| instructions      | string         | `""`        | Instructions on how to use the tool.                                                          |
-| jsonResponse      | boolean        | `false`     | Whether the tool returns a JSON response instead of plain text. You must include the word 'json' in the body of the prompt                               |
+| Argument       | Type           | Default     | Description                                                                                   |
+|----------------|----------------|-------------|-----------------------------------------------------------------------------------------------|
+| name           | string         | `""`        | The name of the tool. Optional only on the first tool if there are multiple tools defined.                                                                         |
+| description    | string         | `""`        | A brief description of what the tool does, this is important for explaining to the LLM when it should be used.                                                    |
+| tools          | array          | `[]`        | An array of tools that the current tool might depend on or use.                               |
+| maxTokens      | number/undefined | `undefined` | The maximum number of tokens to be used. Prefer `undefined` for uninitialized or optional values. |
+| model          | string         | `""`        | The model that the tool uses, if applicable.                                                  |
+| disableCache   | boolean        | `true`      | Whether caching is enabled for the tool.                                                      |
+| temperature    | number/undefined | `undefined` | The temperature setting for the model, affecting randomness. `undefined` for default behavior. |
+| args           | object         | `{}`        | Additional arguments specific to the tool, described by key-value pairs.                      |
+| internalPrompt | boolean  | `false`        | An internal prompt used by the tool, if any.                                                  |
+| instructions   | string         | `""`        | Instructions on how to use the tool.                                                          |
+| jsonResponse   | boolean        | `false`     | Whether the tool returns a JSON response instead of plain text. You must include the word 'json' in the body of the prompt                               |
 
 ### FreeForm Parameters
 

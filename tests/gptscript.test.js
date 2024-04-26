@@ -4,8 +4,8 @@ const path = require('path');
 describe('gptscript module', () => {
 
     beforeAll(() => {
-        if (!process.env.OPENAI_API_KEY) {
-            throw new Error("OPENAI_API_KEY is not set");
+        if (!process.env.OPENAI_API_KEY && !process.env.GPTSCRIPT_URL) {
+            throw new Error("neither OPENAI_API_KEY nor GPTSCRIPT_URL is set");
         }
     });
 
@@ -38,7 +38,7 @@ describe('gptscript module', () => {
             instructions: "who was the president of the united states in 1928?"
         });
         const opts = {
-            cache: false
+            disableCache: true
         }
 
         try {
@@ -66,7 +66,7 @@ describe('gptscript module', () => {
             instructions: "who was the president of the united states in 1928?"
         });
         const opts = {
-            cache: false
+            disableCache: true
         }
 
         try {
@@ -124,11 +124,11 @@ describe('gptscript module', () => {
         let err = "";
         const testGptPath = path.join(__dirname, 'fixtures', 'test.gpt');
         const opts = {
-            cache: false
+            disableCache: true
         }
 
         try {
-            const { stdout, stderr, promise } = await gptscript.streamExecFile(testGptPath, opts);
+            const { stdout, stderr, promise } = await gptscript.streamExecFile(testGptPath, "", opts);
             stdout.on('data', data => {
                 out += `system: ${data}`;
             });
@@ -150,11 +150,11 @@ describe('gptscript module', () => {
         let event = "";
         const testGptPath = path.join(__dirname, 'fixtures', 'test.gpt');
         const opts = {
-            cache: false
+            disableCache: true
         }
 
         try {
-            const { stdout, stderr, events, promise } = await gptscript.streamExecFileWithEvents(testGptPath, opts);
+            const { stdout, stderr, events, promise } = await gptscript.streamExecFileWithEvents(testGptPath, "", opts);
             stdout.on('data', data => {
                 out += `system: ${data}`;
             });
