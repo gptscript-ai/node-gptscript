@@ -1,0 +1,27 @@
+{
+	"compilerOptions": {
+		/* Language and Environment */
+		"target": "ES2020",
+		/* Specify what module code is generated. */
+		"module": "commonjs",
+		// Specify the root folder within your source files.
+		"rootDir": "./src",
+		// Generate .d.ts files from TypeScript and JavaScript files in your project.
+		"declaration": true,
+		// Specify an output folder for all emitted files.
+		"outDir": "./dist",
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"strict": true,
+		"skipLibCheck": true,
+		"emitDecoratorMetadata": true,
+		"experimentalDecorators": true
+	},
+	"exclude": [
+		"node_modules",
+		"dist",
+		"tests",
+		"exec",
+		"examples"
+	]
+}
