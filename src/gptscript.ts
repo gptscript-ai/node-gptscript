@@ -184,26 +184,32 @@ export class Run {
 			this.req = http.request(options, (res: http.IncomingMessage) => {
 				this.state = RunState.Running
 				res.on("data", (chunk: any) => {
-					const c = chunk.toString().replace(/^(data: )/, "").trim()
-					if (c === "[DONE]") {
-						return
-					}
+					for (let line of (chunk.toString() + frag).split("\n")) {
+						const c = line.replace(/^(data: )/, "").trim()
+						if (!c) {
+							continue
+						}
 
-					let e: any
-					try {
-						e = JSON.parse(frag + c)
-					} catch {
-						frag += c
-						return
-					}
-					frag = ""
+						if (c === "[DONE]") {
+							return
+						}
 
-					if (e.stderr) {
-						this.stderr = (this.stderr || "") + (typeof e.stderr === "string" ? e.stderr : JSON.stringify(e.stderr))
-					} else if (e.stdout) {
-						this.stdout = (this.stdout || "") + (typeof e.stdout === "string" ? e.stdout : JSON.stringify(e.stdout))
-					} else {
-						frag = this.emitEvent(frag + c)
+						let e: any
+						try {
+							e = JSON.parse(c)
+						} catch {
+							frag = c
+							return
+						}
+						frag = ""
+
+						if (e.stderr) {
+							this.stderr = (this.stderr || "") + (typeof e.stderr === "string" ? e.stderr : JSON.stringify(e.stderr))
+						} else if (e.stdout) {
+							this.stdout = (this.stdout || "") + (typeof e.stdout === "string" ? e.stdout : JSON.stringify(e.stdout))
+						} else {
+							frag = this.emitEvent(c)
+						}
 					}
 				})
 
@@ -270,7 +276,6 @@ export class Run {
 			if (!event) {
 				continue
 			}
-
 			let f: Frame
 			try {
 				f = JSON.parse(event) as Frame
