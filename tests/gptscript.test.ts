@@ -131,7 +131,7 @@ describe("gptscript module", () => {
 		try {
 			const run = gptscript.run(testGptPath, opts)
 			run.on(gptscript.RunEventType.CallProgress, data => {
-				run.abort()
+				run.close()
 			})
 			await run.text()
 			err = run.err

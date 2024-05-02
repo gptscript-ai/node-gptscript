@@ -2,6 +2,8 @@ import * as path from "path"
 import child_process from "child_process"
 import net from "node:net"
 import http from "http"
+//@ts-ignore
+import SSE from "sse.js"
 
 export interface RunOpts {
 	gptscriptURL?: string
@@ -52,6 +54,7 @@ export class Run {
 
 	private promise?: Promise<string>
 	private process?: child_process.ChildProcess
+	private sse?: SSE
 	private req?: http.ClientRequest
 	private stdout?: string
 	private stderr?: string
@@ -179,41 +182,34 @@ export class Run {
 		const options = this.requestOptions(this.opts.gptscriptURL, path, postData, tool)
 
 		this.promise = new Promise<string>((resolve, reject) => {
-			// Use frag to keep track of partial object writes.
-			let frag = ""
-			this.req = http.request(options, (res: http.IncomingMessage) => {
-				this.state = RunState.Running
-				res.on("data", (chunk: any) => {
-					for (let line of (chunk.toString() + frag).split("\n")) {
-						const c = line.replace(/^(data: )/, "").trim()
-						if (!c) {
-							continue
-						}
+			// This checks that the code is running in a browser. If it is, then we use SSE.
+			if (typeof window !== "undefined" && typeof window.document !== "undefined") {
+				this.sse = new SSE(this.opts.gptscriptURL + "/" + path, {
+					headers: {"Content-Type": "application/json"},
+					payload: postData
+				})
 
-						if (c === "[DONE]") {
-							return
-						}
+				this.sse.addEventListener("open", () => {
+					this.state = RunState.Running
+				})
 
-						let e: any
-						try {
-							e = JSON.parse(c)
-						} catch {
-							frag = c
-							return
-						}
-						frag = ""
+				this.sse.addEventListener("message", (data: any) => {
+					if (data.data === "[DONE]") {
+						this.sse.close()
+						return
+					}
 
-						if (e.stderr) {
-							this.stderr = (this.stderr || "") + (typeof e.stderr === "string" ? e.stderr : JSON.stringify(e.stderr))
-						} else if (e.stdout) {
-							this.stdout = (this.stdout || "") + (typeof e.stdout === "string" ? e.stdout : JSON.stringify(e.stdout))
-						} else {
-							frag = this.emitEvent(c)
-						}
+					const e = JSON.parse(data.data)
+					if (e.stderr) {
+						this.stderr = (this.stderr || "") + (typeof e.stderr === "string" ? e.stderr : JSON.stringify(e.stderr))
+					} else if (e.stdout) {
+						this.stdout = (this.stdout || "") + (typeof e.stdout === "string" ? e.stdout : JSON.stringify(e.stdout))
+					} else {
+						this.emitEvent(data.data)
 					}
 				})
 
-				res.on("end", () => {
+				this.sse.addEventListener("close", () => {
 					if (this.state === RunState.Running || this.state === RunState.Finished) {
 						this.state = RunState.Finished
 						resolve(this.stdout || "")
@@ -222,29 +218,81 @@ export class Run {
 					}
 				})
 
-				res.on("aborted", () => {
-					if (this.state !== RunState.Finished) {
+				this.sse.addEventListener("error", (err: any) => {
+					this.state = RunState.Error
+					this.err = err
+					reject(err)
+				})
+			} else {
+				// If not in the browser, then we use HTTP.
+
+				// Use frag to keep track of partial object writes.
+				let frag = ""
+				this.req = http.request(options, (res: http.IncomingMessage) => {
+					this.state = RunState.Running
+					res.on("data", (chunk: any) => {
+						for (let line of (chunk.toString() + frag).split("\n")) {
+							const c = line.replace(/^(data: )/, "").trim()
+							if (!c) {
+								continue
+							}
+
+							if (c === "[DONE]") {
+								return
+							}
+
+							let e: any
+							try {
+								e = JSON.parse(c)
+							} catch {
+								frag = c
+								return
+							}
+							frag = ""
+
+							if (e.stderr) {
+								this.stderr = (this.stderr || "") + (typeof e.stderr === "string" ? e.stderr : JSON.stringify(e.stderr))
+							} else if (e.stdout) {
+								this.stdout = (this.stdout || "") + (typeof e.stdout === "string" ? e.stdout : JSON.stringify(e.stdout))
+							} else {
+								frag = this.emitEvent(c)
+							}
+						}
+					})
+
+					res.on("end", () => {
+						if (this.state === RunState.Running || this.state === RunState.Finished) {
+							this.state = RunState.Finished
+							resolve(this.stdout || "")
+						} else if (this.state === RunState.Error) {
+							reject(this.err)
+						}
+					})
+
+					res.on("aborted", () => {
+						if (this.state !== RunState.Finished) {
+							this.state = RunState.Error
+							this.err = "Run has been aborted"
+							reject(this.err)
+						}
+					})
+
+					res.on("error", (error: Error) => {
 						this.state = RunState.Error
-						this.err = "Run has been aborted"
+						this.err = error.message || ""
 						reject(this.err)
-					}
+					})
 				})
 
-				res.on("error", (error: Error) => {
+				this.req.on("error", (error: Error) => {
 					this.state = RunState.Error
 					this.err = error.message || ""
 					reject(this.err)
 				})
-			})
 
-			this.req.on("error", (error: Error) => {
-				this.state = RunState.Error
-				this.err = error.message || ""
-				reject(this.err)
-			})
-
-			this.req.write(postData)
-			this.req.end()
+				this.req.write(postData)
+				this.req.end()
+			}
 		})
 	}
 
@@ -297,7 +345,7 @@ export class Run {
 					this.state = RunState.Finished
 					this.stdout = f.output || ""
 				}
-			} else if (f.type.startsWith("call")) {
+			} else if ((f.type as string).startsWith("call")) {
 				let call = this.calls?.find((x) => x.id === f.callContext.id)
 
 				if (!call) {
@@ -382,7 +430,7 @@ export class Run {
 		return JSON.parse(await this.text())
 	}
 
-	public abort(): void {
+	public close(): void {
 		if (this.process) {
 			if (this.process.exitCode === null) {
 				this.process.kill("SIGKILL")
@@ -392,6 +440,11 @@ export class Run {
 
 		if (this.req) {
 			this.req.destroy()
+			return
+		}
+
+		if (this.sse) {
+			this.sse.close()
 			return
 		}
 
