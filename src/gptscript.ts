@@ -1,5 +1,4 @@
 import * as path from "path"
-import events from "events"
 import child_process from "child_process"
 import net from "node:net"
 import http from "http"
@@ -43,12 +42,12 @@ export enum RunEventType {
 	CallFinish = "callFinish",
 }
 
-export class Run extends events.EventEmitter {
+export class Run {
 	public readonly id: string
 	public readonly opts: RunOpts
-	public state: RunState
-	public calls?: Call[]
-	public err?: string
+	public state: RunState = RunState.Creating
+	public calls: Call[] = []
+	public err = ''
 	public readonly path: string
 
 	private promise?: Promise<string>
@@ -56,13 +55,12 @@ export class Run extends events.EventEmitter {
 	private req?: http.ClientRequest
 	private stdout?: string
 	private stderr?: string
+	private callbacks: Record<string, ((f: Frame) => void)[]> = {}
 
 	constructor(path: string, opts: RunOpts) {
-		super()
 		this.id = randomId("run-")
 		this.opts = opts
 		this.path = path
-		this.state = RunState.Creating
 	}
 
 	exec(command: string, args: string[], stdin: string = "", env: NodeJS.Dict<string> = process.env): void {
@@ -159,7 +157,7 @@ export class Run extends events.EventEmitter {
 					this.err = "Run has been aborted"
 				} else if (code !== 0) {
 					this.state = RunState.Error
-					this.err = this.stderr
+					this.err = this.stderr || ''
 				} else {
 					this.state = RunState.Finished
 				}
@@ -228,14 +226,14 @@ export class Run extends events.EventEmitter {
 
 				res.on("error", (error: Error) => {
 					this.state = RunState.Error
-					this.err = error.message
+					this.err = error.message || ''
 					reject(this.err)
 				})
 			})
 
 			this.req.on("error", (error: Error) => {
 				this.state = RunState.Error
-				this.err = error.message
+				this.err = error.message || ''
 				reject(this.err)
 			})
 
@@ -260,7 +258,7 @@ export class Run extends events.EventEmitter {
 			method: method,
 			headers: {
 				"Content-Type": "application/json",
-				"Content-Length": Buffer.byteLength(postData),
+				"Content-Length": postData.length
 			},
 		}
 	}
@@ -289,7 +287,7 @@ export class Run extends events.EventEmitter {
 			} else if (f.type === RunEventType.RunFinish) {
 				if (f.err) {
 					this.state = RunState.Error
-					this.err = f.err
+					this.err = f.err || ''
 				} else {
 					this.state = RunState.Finished
 					this.stdout = f.output || ""
@@ -345,6 +343,12 @@ export class Run extends events.EventEmitter {
 		return ""
 	}
 
+	private emit(event: RunEventType, data: any){
+		for ( const cb of this.callbacks[event] || [] ){
+			cb(data)
+		}
+	}
+
 	public on(event: RunEventType.RunStart, listener: (data: RunStartFrame) => void): this;
 	public on(event: RunEventType.RunFinish, listener: (data: RunFinishFrame) => void): this;
 	public on(event: RunEventType.CallStart, listener: (data: CallStartFrame) => void): this;
@@ -354,7 +358,12 @@ export class Run extends events.EventEmitter {
 	public on(event: RunEventType.CallFinish, listener: (data: CallFinishFrame) => void): this;
 	public on(event: RunEventType.Event, listener: (data: Frame) => void): this;
 	public on(event: RunEventType, listener: (data: any) => void): this {
-		super.on(event, listener)
+		if(!this.callbacks[event]) {
+			this.callbacks[event] = [];
+		}
+
+		this.callbacks[event].push(listener)
+
 		return this
 	}
 
