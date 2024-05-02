@@ -151,8 +151,7 @@ export class Run extends events.EventEmitter {
 			})
 		}
 		this.promise = new Promise((resolve, reject) => {
-			// @ts-ignore
-			this.process.on("exit", (code: number | null, signal: NodeJS.Signals | null) => {
+			this.process!.on("exit", (code: number | null, signal: NodeJS.Signals | null) => {
 				server.close()
 
 				if (signal) {
@@ -267,13 +266,18 @@ export class Run extends events.EventEmitter {
 	}
 
 	emitEvent(data: string): string {
-		for (const event of data.split("\n")) {
-			if (event.trim() === "") continue
+		for (let event of data.split("\n")) {
+			event = event.trim()
+
+			if (!event) {
+				continue
+			}
+
 			let f: Frame
 			try {
-				f = JSON.parse(event.trim()) as Frame
+				f = JSON.parse(event) as Frame
 			} catch (error) {
-				return event.trim()
+				return event
 			}
 
 			if (!this.state) {
@@ -354,35 +358,20 @@ export class Run extends events.EventEmitter {
 		return this
 	}
 
-	public async text(): Promise<string> {
-		return new Promise((resolve, reject) => {
-			if (this.err) {
-				reject(this.err)
-			}
-			if (!this.promise) {
-				reject(new Error("Run not started"))
-			}
+	public text(): Promise<string> {
+		if (this.err) {
+			throw new Error(this.err)
+		}
 
-			this.promise?.then(text => {
-				resolve(text)
-			}).catch(error => {
-				reject(error)
-			})
-		})
+		if (!this.promise) {
+			throw new Error("Run not started")
+		}
+
+		return this.promise
 	}
 
-	public async json(): Promise<Record<string, any>> {
-		return new Promise((resolve, reject) => {
-			this.text().then(text => {
-				try {
-					resolve(JSON.parse(text))
-				} catch (error) {
-					reject(error)
-				}
-			}).catch(error => {
-				reject(error)
-			})
-		})
+	public async json(): Promise<any> {
+		return JSON.parse(await this.text())
 	}
 
 	public abort(): void {
@@ -424,6 +413,7 @@ export interface Parameters {
 	internalPrompt: boolean
 	arguments: ArgumentSchema
 	tools: string[]
+	globalTools: string[]
 	export: string[]
 	blocking: boolean
 }
@@ -456,7 +446,6 @@ export interface Tool extends ToolDef {
 	type: "tool"
 	toolMapping: Record<string, string>
 	localTools: Record<string, string>
-	globalTools: string[]
 	source: SourceRef
 	workingDir: string
 }
@@ -629,26 +618,26 @@ function getCmdPath(): string {
 	return path.join(__dirname, "..", "bin", "gptscript")
 }
 
-export async function listTools(gptscriptURL?: string): Promise<string> {
-	return await runBasicCommand("list-tools", gptscriptURL)
+export function listTools(gptscriptURL?: string): Promise<string> {
+	return runBasicCommand("list-tools", gptscriptURL)
 }
 
-export async function listModels(gptscriptURL?: string): Promise<string> {
-	return await runBasicCommand("list-models", gptscriptURL)
+export function listModels(gptscriptURL?: string): Promise<string> {
+	return runBasicCommand("list-models", gptscriptURL)
 }
 
-export async function version(gptscriptURL?: string): Promise<string> {
-	return await runBasicCommand("version", gptscriptURL)
+export function version(gptscriptURL?: string): Promise<string> {
+	return runBasicCommand("version", gptscriptURL)
 }
 
-async function runBasicCommand(cmd: string, gptscriptURL?: string): Promise<string> {
+function runBasicCommand(cmd: string, gptscriptURL?: string): Promise<string> {
 	const r = new Run("", {gptscriptURL: gptscriptURL})
 	if (gptscriptURL) {
 		r.request(cmd, null)
 	} else {
 		r.exec(getCmdPath(), ["--" + cmd])
 	}
-	return await r.text()
+	return r.text()
 }
 
 export function run(toolName: string, opts: RunOpts): Run {
@@ -707,7 +696,7 @@ export async function parseTool(tool: string, gptscriptURL?: string): Promise<Bl
 	return parseBlocksFromNodes((await r.json()).nodes)
 }
 
-export async function stringify(blocks: Block[], gptscriptURL?: string): Promise<string> {
+export function stringify(blocks: Block[], gptscriptURL?: string): Promise<string> {
 	const nodes: any[] = []
 
 	for (const block of blocks) {
@@ -720,7 +709,7 @@ export async function stringify(blocks: Block[], gptscriptURL?: string): Promise
 		} else if (block.type === "text") {
 			nodes.push({
 				textNode: {
-					text: "!" + (block.format || "markdown") + "\n" + block.content
+					text: "!" + (block.format || "text") + "\n" + block.content
 				}
 			})
 		}
@@ -733,7 +722,7 @@ export async function stringify(blocks: Block[], gptscriptURL?: string): Promise
 		r.exec(getCmdPath(), ["fmt", "-"], JSON.stringify({nodes: nodes}))
 	}
 
-	return await r.text()
+	return r.text()
 }
 
 function parseBlocksFromNodes(nodes: any[]): Block[] {
@@ -749,7 +738,7 @@ function parseBlocksFromNodes(nodes: any[]): Block[] {
 			})
 		}
 		if (node.textNode) {
-			const format = node.textNode.text.substring(1, node.textNode.text.indexOf("\n")).trim() || "markdown"
+			const format = node.textNode.text.substring(1, node.textNode.text.indexOf("\n")).trim() || "text"
 			blocks.push({
 				id: randomId("text-"),
 				type: "text",
@@ -775,11 +764,14 @@ function toolDefToString(tool: ToolDef) {
 	if (tool.description) {
 		toolInfo.push(`Description: ${tool.description}`)
 	}
-	if (tool.tools && tool.tools.length > 0) {
+	if (tool.globalTools?.length) {
+		toolInfo.push(`Global Tools: ${tool.globalTools.join(", ")}`)
+	}
+	if (tool.tools?.length > 0) {
 		toolInfo.push(`Tools: ${tool.tools.join(", ")}`)
 	}
 	if (tool.maxTokens !== undefined) {
-		toolInfo.push(`Max tokens: ${tool.maxTokens}`)
+		toolInfo.push(`Max Tokens: ${tool.maxTokens}`)
 	}
 	if (tool.modelName) {
 		toolInfo.push(`Model: ${tool.modelName}`)
@@ -799,9 +791,11 @@ function toolDefToString(tool: ToolDef) {
 		}
 	}
 	if (tool.internalPrompt) {
-		toolInfo.push(`Internal prompt: ${tool.internalPrompt}`)
+		toolInfo.push(`Internal Prompt: ${tool.internalPrompt}`)
 	}
+
 	if (tool.instructions) {
+		toolInfo.push("")
 		toolInfo.push(tool.instructions)
 	}
 
