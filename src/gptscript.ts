@@ -47,7 +47,7 @@ export class Run {
 	public readonly opts: RunOpts
 	public state: RunState = RunState.Creating
 	public calls: Call[] = []
-	public err = ''
+	public err = ""
 	public readonly path: string
 
 	private promise?: Promise<string>
@@ -157,7 +157,7 @@ export class Run {
 					this.err = "Run has been aborted"
 				} else if (code !== 0) {
 					this.state = RunState.Error
-					this.err = this.stderr || ''
+					this.err = this.stderr || ""
 				} else {
 					this.state = RunState.Finished
 				}
@@ -226,14 +226,14 @@ export class Run {
 
 				res.on("error", (error: Error) => {
 					this.state = RunState.Error
-					this.err = error.message || ''
+					this.err = error.message || ""
 					reject(this.err)
 				})
 			})
 
 			this.req.on("error", (error: Error) => {
 				this.state = RunState.Error
-				this.err = error.message || ''
+				this.err = error.message || ""
 				reject(this.err)
 			})
 
@@ -287,7 +287,7 @@ export class Run {
 			} else if (f.type === RunEventType.RunFinish) {
 				if (f.err) {
 					this.state = RunState.Error
-					this.err = f.err || ''
+					this.err = f.err || ""
 				} else {
 					this.state = RunState.Finished
 					this.stdout = f.output || ""
@@ -343,12 +343,6 @@ export class Run {
 		return ""
 	}
 
-	private emit(event: RunEventType, data: any){
-		for ( const cb of this.callbacks[event] || [] ){
-			cb(data)
-		}
-	}
-
 	public on(event: RunEventType.RunStart, listener: (data: RunStartFrame) => void): this;
 	public on(event: RunEventType.RunFinish, listener: (data: RunFinishFrame) => void): this;
 	public on(event: RunEventType.CallStart, listener: (data: CallStartFrame) => void): this;
@@ -358,8 +352,8 @@ export class Run {
 	public on(event: RunEventType.CallFinish, listener: (data: CallFinishFrame) => void): this;
 	public on(event: RunEventType.Event, listener: (data: Frame) => void): this;
 	public on(event: RunEventType, listener: (data: any) => void): this {
-		if(!this.callbacks[event]) {
-			this.callbacks[event] = [];
+		if (!this.callbacks[event]) {
+			this.callbacks[event] = []
 		}
 
 		this.callbacks[event].push(listener)
@@ -398,6 +392,12 @@ export class Run {
 
 		throw new Error("Run not started")
 	}
+
+	private emit(event: RunEventType, data: any) {
+		for (const cb of this.callbacks[event] || []) {
+			cb(data)
+		}
+	}
 }
 
 export type Arguments = string | Record<string, string>
@@ -406,25 +406,6 @@ export interface ArgumentSchema {
 	type: "object"
 	properties?: Record<string, Property>
 	required?: string[]
-}
-
-export type EnvVars = string[]
-
-export interface Parameters {
-	name: string
-	description: string
-	maxTokens: number
-	modelName: string
-	modelProvider: boolean
-	jsonResponse: boolean
-	temperature: number
-	cache?: boolean
-	internalPrompt: boolean
-	arguments: ArgumentSchema
-	tools: string[]
-	globalTools: string[]
-	export: string[]
-	blocking: boolean
 }
 
 export interface Program {
@@ -446,7 +427,21 @@ export interface Repo {
 	revision: string
 }
 
-export interface ToolDef extends Parameters {
+export interface ToolDef {
+	name: string
+	description: string
+	maxTokens: number
+	modelName: string
+	modelProvider: boolean
+	jsonResponse: boolean
+	temperature: number
+	cache?: boolean
+	internalPrompt: boolean
+	arguments: ArgumentSchema
+	tools: string[]
+	globalTools: string[]
+	export: string[]
+	blocking: boolean
 	instructions: string
 }
 
@@ -493,10 +488,15 @@ export interface Call {
 	showSystemMessages?: boolean
 }
 
-export interface BaseFrame {
+interface BaseFrame {
 	type: RunEventType
 	time: string
 	runID: string
+}
+
+interface CallFrame extends BaseFrame {
+	callContext: Call
+	input: Arguments
 }
 
 export interface RunStartFrame extends BaseFrame {
@@ -510,11 +510,6 @@ export interface RunFinishFrame extends BaseFrame {
 
 	err?: string
 	output?: string
-}
-
-export interface CallFrame extends BaseFrame {
-	callContext: Call
-	input: Arguments
 }
 
 export interface CallStartFrame extends CallFrame {
@@ -649,7 +644,14 @@ function runBasicCommand(cmd: string, gptscriptURL?: string): Promise<string> {
 	return r.text()
 }
 
-export function run(toolName: string, opts: RunOpts): Run {
+/**
+ * Runs a tool with the specified name and options.
+ *
+ * @param {string} toolName - The name of the tool to run. Can be a file path, URL, or GitHub URL.
+ * @param {RunOpts} [opts={}] - The options for running the tool.
+ * @return {Run} The Run object representing the running tool.
+ */
+export function run(toolName: string, opts: RunOpts = {}): Run {
 	const r: Run = new Run(toolName, opts)
 
 	if (opts.gptscriptURL) {
@@ -661,7 +663,14 @@ export function run(toolName: string, opts: RunOpts): Run {
 	return r
 }
 
-export function evaluate(tool: ToolDef | ToolDef[] | string, opts: RunOpts): Run {
+/**
+ * Evaluates the given tool and returns a Run object.
+ *
+ * @param {ToolDef | ToolDef[] | string} tool - The tool to be evaluated. Can be a single ToolDef object, an array of ToolDef objects, or a string representing the tool contents.
+ * @param {RunOpts} [opts={}] - Optional options for the evaluation.
+ * @return {Run} The Run object representing the evaluation.
+ */
+export function evaluate(tool: ToolDef | ToolDef[] | string, opts: RunOpts = {}): Run {
 	let toolString: string = ""
 
 	if (Array.isArray(tool)) {
@@ -695,12 +704,12 @@ export async function parse(fileName: string, gptscriptURL?: string): Promise<Bl
 	return parseBlocksFromNodes((await r.json()).nodes)
 }
 
-export async function parseTool(tool: string, gptscriptURL?: string): Promise<Block[]> {
+export async function parseTool(toolContent: string, gptscriptURL?: string): Promise<Block[]> {
 	const r: Run = new Run("", {gptscriptURL: gptscriptURL})
 	if (gptscriptURL) {
-		r.request("parse", {input: tool})
+		r.request("parse", {input: toolContent})
 	} else {
-		r.exec(getCmdPath(), ["parse", "-"], tool)
+		r.exec(getCmdPath(), ["parse", "-"], toolContent)
 	}
 	return parseBlocksFromNodes((await r.json()).nodes)
 }
@@ -744,7 +753,7 @@ function parseBlocksFromNodes(nodes: any[]): Block[] {
 			blocks.push({
 				type: "tool",
 				...node.toolNode.tool,
-			})
+			} as Tool)
 		}
 		if (node.textNode) {
 			const format = node.textNode.text.substring(1, node.textNode.text.indexOf("\n")).trim() || "text"
@@ -753,7 +762,7 @@ function parseBlocksFromNodes(nodes: any[]): Block[] {
 				type: "text",
 				format: format,
 				content: node.textNode.text.substring(node.textNode.text.indexOf("\n") + 1).trim(),
-			})
+			} as Text)
 		}
 	}
 	return blocks

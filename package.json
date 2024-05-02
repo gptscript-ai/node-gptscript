@@ -3,6 +3,7 @@
 	"version": "v0.5.0",
 	"description": "Run gptscript in node.js",
 	"main": "dist/gptscript.js",
+	"type": "module",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/gptscript-ai/node-gptscript.git"
