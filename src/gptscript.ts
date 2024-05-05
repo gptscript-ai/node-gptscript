@@ -1,9 +1,5 @@
-import * as path from "path"
-import child_process from "child_process"
-import net from "node:net"
-import http from "http"
-//@ts-ignore
-import SSE from "sse.js"
+// @ts-ignore
+import type { SSE } from 'sse.js'
 
 export interface RunOpts {
 	gptscriptURL?: string
@@ -53,9 +49,9 @@ export class Run {
 	public readonly path: string
 
 	private promise?: Promise<string>
-	private process?: child_process.ChildProcess
+	private process?: any
 	private sse?: SSE
-	private req?: http.ClientRequest
+	private req?: any
 	private stdout?: string
 	private stderr?: string
 	private callbacks: Record<string, ((f: Frame) => void)[]> = {}
@@ -66,92 +62,97 @@ export class Run {
 		this.path = path
 	}
 
-	exec(command: string, args: string[], stdin: string = "", env: NodeJS.Dict<string> = process.env): void {
+	exec(command: string, args: string[], stdin: string = "", env: NodeJS.Dict<string> = process.env) {
 		if (this.path) {
 			args.push(this.path)
 		}
+
 		if (this.opts.input) {
 			args.push(this.opts.input)
 		}
 
-		const spawnOptions = {env, stdio: ["pipe", "pipe", "pipe"]}
-		const server = net.createServer((connection) => {
-			console.debug("Client connected")
+		this.promise = new Promise(async (resolve, reject) => {
+			const net = await import('net')
+			const spawnOptions = {env, stdio: ["pipe", "pipe", "pipe"]}
+			const server = net.createServer((connection) => {
+				console.debug("Client connected")
 
-			connection.on("data", (data) => {
-				this.emitEvent(data.toString())
+				connection.on("data", (data) => {
+					this.emitEvent(data.toString())
+				})
+
+				connection.on("end", () => {
+					server.close()
+				})
 			})
 
-			connection.on("end", () => {
+
+			// On Windows, the child process doesn't know which file handles are available to it.
+			// Therefore, we have to use a named pipe. This is set up with a server.
+			if (process.platform === "win32") {
+				const namedPipe = "\\\\.\\pipe\\gptscript-" + Math.floor(Math.random() * 1000000)
+				server.listen(namedPipe, () => {
+					console.debug("Server is listening on", namedPipe)
+				})
+
+				// Add the named pipe for streaming events.
+				args.unshift("--events-stream-to=" + namedPipe)
+			} else {
+				// For non-Windows systems, we just add an extra stdio pipe and use that for streaming events.
+				spawnOptions.stdio.push("pipe")
+				args.unshift("--events-stream-to=fd://" + (spawnOptions.stdio.length - 1))
+			}
+
+
+			const child_process = await import('child_process')
+
+			this.process = child_process.spawn(command, args, spawnOptions as any)
+			if (process.platform !== "win32") {
+				// We don't need the named pipe for streaming events.
 				server.close()
-			})
-		})
 
-
-		// On Windows, the child process doesn't know which file handles are available to it.
-		// Therefore, we have to use a named pipe. This is set up with a server.
-		if (process.platform === "win32") {
-			const namedPipe = "\\\\.\\pipe\\gptscript-" + Math.floor(Math.random() * 1000000)
-			server.listen(namedPipe, () => {
-				console.debug("Server is listening on", namedPipe)
-			})
-
-			// Add the named pipe for streaming events.
-			args.unshift("--events-stream-to=" + namedPipe)
-		} else {
-			// For non-Windows systems, we just add an extra stdio pipe and use that for streaming events.
-			spawnOptions.stdio.push("pipe")
-			args.unshift("--events-stream-to=fd://" + (spawnOptions.stdio.length - 1))
-		}
-
-
-		this.process = child_process.spawn(command, args, spawnOptions as any)
-		if (process.platform !== "win32") {
-			// We don't need the named pipe for streaming events.
-			server.close()
-
-			// If the child process is not a Windows system, we can use the stdio pipe for streaming events.
-			if (this.process && this.process.stdio) {
-				const pipe = this.process.stdio[this.process.stdio.length - 1]
-				if (pipe) {
-					pipe.on("data", (data) => {
-						this.emitEvent(data.toString())
-					})
+				// If the child process is not a Windows system, we can use the stdio pipe for streaming events.
+				if (this.process && this.process.stdio) {
+					const pipe = this.process.stdio[this.process.stdio.length - 1]
+					if (pipe) {
+						pipe.on("data", (data: any) => {
+							this.emitEvent(data.toString())
+						})
+					}
 				}
 			}
-		}
 
-		if (!this.process) {
-			this.state = RunState.Error
-			this.err = "Run failed to start"
-			server.close()
-			this.promise = Promise.reject(this.err)
-			return
-		}
-
-		// Write to stdin if provided
-		if (this.process && this.process.stdin) {
-			this.process.stdin.setDefaultEncoding("utf-8")
-			if (stdin) {
-				this.process.stdin.write(stdin)
+			if (!this.process) {
+				this.state = RunState.Error
+				this.err = "Run failed to start"
+				server.close()
+				this.promise = Promise.reject(this.err)
+				return
 			}
-			this.process.stdin.end()
-		}
 
-		this.state = RunState.Running
+			// Write to stdin if provided
+			if (this.process && this.process.stdin) {
+				this.process.stdin.setDefaultEncoding("utf-8")
+				if (stdin) {
+					this.process.stdin.write(stdin)
+				}
+				this.process.stdin.end()
+			}
 
-		if (this.process.stdout) {
-			this.process.stdout.on("data", data => {
-				this.stdout = (this.stdout || "") + data
-			})
-		}
+			this.state = RunState.Running
 
-		if (this.process.stderr) {
-			this.process.stderr.on("data", data => {
-				this.stderr = (this.stderr || "") + data
-			})
-		}
-		this.promise = new Promise((resolve, reject) => {
+			if (this.process.stdout) {
+				this.process.stdout.on("data", (data: any) => {
+					this.stdout = (this.stdout || "") + data
+				})
+			}
+
+			if (this.process.stderr) {
+				this.process.stderr.on("data", (data: any) => {
+					this.stderr = (this.stderr || "") + data
+				})
+			}
+
 			this.process!.on("exit", (code: number | null, signal: NodeJS.Signals | null) => {
 				server.close()
 
@@ -174,20 +175,22 @@ export class Run {
 		})
 	}
 
-	request(path: string, tool: any): void {
+	request(path: string, tool: any) {
 		if (!this.opts.gptscriptURL) {
 			throw new Error("request() requires gptscriptURL to be set")
 		}
 		const postData = JSON.stringify({...tool, ...this.opts})
 		const options = this.requestOptions(this.opts.gptscriptURL, path, postData, tool)
 
-		this.promise = new Promise<string>((resolve, reject) => {
+		this.promise = new Promise<string>(async (resolve, reject) => {
 			// This checks that the code is running in a browser. If it is, then we use SSE.
 			if (typeof window !== "undefined" && typeof window.document !== "undefined") {
+				// @ts-ignore
+				const {SSE} = await import('sse.js')
 				this.sse = new SSE(this.opts.gptscriptURL + "/" + path, {
 					headers: {"Content-Type": "application/json"},
 					payload: postData
-				})
+				} as any)
 
 				this.sse.addEventListener("open", () => {
 					this.state = RunState.Running
@@ -195,7 +198,7 @@ export class Run {
 
 				this.sse.addEventListener("message", (data: any) => {
 					if (data.data === "[DONE]") {
-						this.sse.close()
+						this.sse!.close()
 						return
 					}
 
@@ -225,10 +228,11 @@ export class Run {
 				})
 			} else {
 				// If not in the browser, then we use HTTP.
+				const http = await import('http')
 
 				// Use frag to keep track of partial object writes.
 				let frag = ""
-				this.req = http.request(options, (res: http.IncomingMessage) => {
+				this.req = http.request(options, (res: any) => {
 					this.state = RunState.Running
 					res.on("data", (chunk: any) => {
 						for (let line of (chunk.toString() + frag).split("\n")) {
@@ -677,7 +681,7 @@ function getCmdPath(): string {
 	if (process.env.GPTSCRIPT_BIN) {
 		return process.env.GPTSCRIPT_BIN
 	}
-	return path.join(__dirname, "..", "bin", "gptscript")
+	return "gptscript"
 }
 
 export function listTools(gptscriptURL?: string): Promise<string> {

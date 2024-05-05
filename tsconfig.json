@@ -1,27 +1,26 @@
 {
-	"compilerOptions": {
-		/* Language and Environment */
-		"target": "esnext",
-		/* Specify what module code is generated. */
-		"module": "esnext",
-		// Specify the root folder within your source files.
-		"rootDir": "./src",
-		// Generate .d.ts files from TypeScript and JavaScript files in your project.
-		"declaration": true,
-		// Specify an output folder for all emitted files.
-		"outDir": "./dist",
-		"esModuleInterop": true,
-		"forceConsistentCasingInFileNames": true,
-		"strict": true,
-		"skipLibCheck": true,
-		"emitDecoratorMetadata": true,
-		"experimentalDecorators": true
-	},
-	"exclude": [
-		"node_modules",
-		"dist",
-		"tests",
-		"exec",
-		"examples"
-	]
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "rootDir": "./src",
+    "declaration": true,
+    "outDir": "./dist",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "typeRoots": ["./node_modules/@types","./src"],
+    "types": ["node"]
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "tests",
+    "exec",
+    "examples"
+  ]
 }

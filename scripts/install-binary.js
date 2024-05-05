@@ -2,13 +2,15 @@
 
 'use strict'
 
-const { DownloaderHelper } = require('node-downloader-helper');
-const fs = require('fs');
-const path = require('path');
-const AdmZip = require('adm-zip');
-const tar = require('tar');
-const util = require('util');
-const exec = util.promisify(require('child_process').exec);
+import { DownloaderHelper } from 'node-downloader-helper';
+import fs from 'fs';
+import path from 'path';
+import AdmZip from 'adm-zip';
+import tar from 'tar';
+import util from 'util';
+import child_process from 'child_process'
+
+const exec = util.promisify(child_process.exec);
 
 async function downloadAndExtract(url, saveDirectory) {
     const dlh = new DownloaderHelper(url, saveDirectory);
@@ -83,7 +85,7 @@ const suffix = {
 
 const url = `${gptscript_info.url}${gptscript_info.version}/gptscript-${gptscript_info.version}-${pltfm}-${arch}.${suffix}`;
 
-const outputDir = path.join(__dirname, '..', 'bin');
+const outputDir = path.resolve('..', 'bin');
 
 const fileExist = (path) => {
     try {
