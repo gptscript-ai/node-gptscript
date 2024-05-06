@@ -52,8 +52,8 @@ Lists all the available built-in tools.
 const gptscript = require('@gptscript-ai/gptscript');
 
 async function listTools() {
-	const tools = await gptscript.listTools();
-	console.log(tools);
+    const tools = await gptscript.listTools();
+    console.log(tools);
 }
 ```
 
@@ -67,12 +67,12 @@ Lists all the available models, returns a list.
 const gptscript = require('@gptscript-ai/gptscript');
 
 async function listModels() {
-	let models = [];
-	try {
-		models = await gptscript.listModels();
-	} catch (error) {
-		console.error(error);
-	}
+    let models = [];
+    try {
+        models = await gptscript.listModels();
+    } catch (error) {
+        console.error(error);
+    }
 }
 ```
 
@@ -86,11 +86,11 @@ Get the first of the current `gptscript` binary being used for the calls.
 const gptscript = require('@gptscript-ai/gptscript');
 
 async function version() {
-	try {
-		console.log(await gptscript.version());
-	} catch (error) {
-		console.error(error);
-	}
+    try {
+        console.log(await gptscript.version());
+    } catch (error) {
+        console.error(error);
+    }
 }
 ```
 
@@ -103,14 +103,14 @@ representing the contents of a gptscript file.
 const gptscript = require('@gptscript-ai/gptscript');
 
 const t = {
-	instructions: "Who was the president of the united states in 1928?"
+    instructions: "Who was the president of the united states in 1928?"
 };
 
 try {
-	const run = gptscript.evaluate(t);
-	console.log(await run.text());
+    const run = gptscript.evaluate(t);
+    console.log(await run.text());
 } catch (error) {
-	console.error(error);
+    console.error(error);
 }
 ```
 
@@ -122,17 +122,17 @@ Executes a GPT script file with optional input and arguments. The script is rela
 const gptscript = require('@gptscript-ai/gptscript');
 
 const opts = {
-	disableCache: true,
-	input: "--input World"
+    disableCache: true,
+    input: "--input World"
 };
 
 async function execFile() {
-	try {
-		const run = gptscript.run('./hello.gpt', opts);
-		console.log(await run.text());
-	} catch (e) {
-		console.error(e);
-	}
+    try {
+        const run = gptscript.run('./hello.gpt', opts);
+        console.log(await run.text());
+    } catch (e) {
+        console.error(e);
+    }
 }
 ```
 
@@ -159,22 +159,72 @@ Subscribing to `RunEventType.Event` gets you all events.
 const gptscript = require('@gptscript-ai/gptscript');
 
 const opts = {
-	disableCache: true,
-	input: "--testin how high is that there mouse?"
+    disableCache: true,
+    input: "--testin how high is that there mouse?"
 };
 
 async function streamExecFileWithEvents() {
-	try {
-		const run = gptscript.run('./test.gpt', opts);
+    try {
+        const run = gptscript.run('./test.gpt', opts);
 
-		run.on(gptscript.RunEventType.Event, data => {
-			console.log(`event: ${data}`);
-		});
+        run.on(gptscript.RunEventType.Event, data => {
+            console.log(`event: ${data}`);
+        });
 
-		await run.text();
-	} catch (e) {
-		console.error(e);
-	}
+        await run.text();
+    } catch (e) {
+        console.error(e);
+    }
+}
+```
+
+### Chat support
+
+For tools that support chat, you can use the `nextChat` method on the run object to continue the chat. This method takes
+a string representing the next chat message from the user.
+
+If the chat can/should continue, then the `Run`'s state will be `RunState.Continue`. Note that calling `nextChat` on
+a `Run` object is an error. Each call to `nextChat` will return a new `Run` instance, so, the call can keep track of the
+chat `Run`s, if desired.
+
+Here is an example flow for chat.
+
+```javascript
+const gptscript = require('@gptscript-ai/gptscript');
+
+const opts = {
+    disableCache: true
+};
+
+const t = {
+    chat: true,
+    tools: ["sys.chat.finish"],
+    instructions: "You are a chat bot. Don't finish the conversation until I say 'bye'."
+};
+
+async function streamExecFileWithEvents() {
+    let run = gptscript.evaluate(t, opts);
+    try {
+        // Wait for the initial run to complete.
+        await run.text();
+
+        while (run.RunState === gptscript.RunState.Continue) {
+            // ...Get the next input from the user somehow...
+
+            run = run.nextChat(inputFromUser)
+
+            // Get the output from gptscript
+            const output = await run.text()
+
+            // Display the output to the user...
+        }
+    } catch (e) {
+        console.error(e);
+    }
+
+
+    // The state here should either be RunState.Finished (on success) or RunState.Error (on error).
+    console.log(run.state)
 }
 ```
 
