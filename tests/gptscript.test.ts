@@ -60,7 +60,7 @@ describe("gptscript module", () => {
 		}
 
 		expect(out).toContain("Calvin Coolidge")
-		expect(err).toBeUndefined()
+		expect(err).toEqual("")
 	})
 
 	describe("run with test.gpt fixture", () => {
@@ -116,7 +116,7 @@ describe("gptscript module", () => {
 		}
 
 		expect(out).toContain("Calvin Coolidge")
-		expect(err).toBeUndefined()
+		expect(err).toEqual("")
 	})
 
 	test("aborting a run is reported correctly", async () => {
@@ -131,7 +131,7 @@ describe("gptscript module", () => {
 		try {
 			const run = gptscript.run(testGptPath, opts)
 			run.on(gptscript.RunEventType.CallProgress, data => {
-				run.abort()
+				run.close()
 			})
 			await run.text()
 			err = run.err

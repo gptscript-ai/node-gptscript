@@ -1,8 +1,5 @@
-import * as path from "path"
-import events from "events"
-import child_process from "child_process"
-import net from "node:net"
-import http from "http"
+// @ts-ignore
+import type { SSE } from 'sse.js'
 
 export interface RunOpts {
 	gptscriptURL?: string
@@ -43,116 +40,120 @@ export enum RunEventType {
 	CallFinish = "callFinish",
 }
 
-export class Run extends events.EventEmitter {
+export class Run {
 	public readonly id: string
 	public readonly opts: RunOpts
-	public state: RunState
-	public calls?: Call[]
-	public err?: string
+	public state: RunState = RunState.Creating
+	public calls: Call[] = []
+	public err = ""
 	public readonly path: string
 
 	private promise?: Promise<string>
-	private process?: child_process.ChildProcess
-	private req?: http.ClientRequest
+	private process?: any
+	private sse?: SSE
+	private req?: any
 	private stdout?: string
 	private stderr?: string
+	private callbacks: Record<string, ((f: Frame) => void)[]> = {}
 
 	constructor(path: string, opts: RunOpts) {
-		super()
 		this.id = randomId("run-")
 		this.opts = opts
 		this.path = path
-		this.state = RunState.Creating
 	}
 
-	exec(command: string, args: string[], stdin: string = "", env: NodeJS.Dict<string> = process.env): void {
+	exec(command: string, args: string[], stdin: string = "", env: NodeJS.Dict<string> = process.env) {
 		if (this.path) {
 			args.push(this.path)
 		}
+
 		if (this.opts.input) {
 			args.push(this.opts.input)
 		}
 
-		const spawnOptions = {env, stdio: ["pipe", "pipe", "pipe"]}
-		const server = net.createServer((connection) => {
-			console.debug("Client connected")
+		this.promise = new Promise(async (resolve, reject) => {
+			const net = await import('net')
+			const spawnOptions = {env, stdio: ["pipe", "pipe", "pipe"]}
+			const server = net.createServer((connection) => {
+				console.debug("Client connected")
 
-			connection.on("data", (data) => {
-				this.emitEvent(data.toString())
+				connection.on("data", (data) => {
+					this.emitEvent(data.toString())
+				})
+
+				connection.on("end", () => {
+					server.close()
+				})
 			})
 
-			connection.on("end", () => {
+
+			// On Windows, the child process doesn't know which file handles are available to it.
+			// Therefore, we have to use a named pipe. This is set up with a server.
+			if (process.platform === "win32") {
+				const namedPipe = "\\\\.\\pipe\\gptscript-" + Math.floor(Math.random() * 1000000)
+				server.listen(namedPipe, () => {
+					console.debug("Server is listening on", namedPipe)
+				})
+
+				// Add the named pipe for streaming events.
+				args.unshift("--events-stream-to=" + namedPipe)
+			} else {
+				// For non-Windows systems, we just add an extra stdio pipe and use that for streaming events.
+				spawnOptions.stdio.push("pipe")
+				args.unshift("--events-stream-to=fd://" + (spawnOptions.stdio.length - 1))
+			}
+
+
+			const child_process = await import('child_process')
+
+			this.process = child_process.spawn(command, args, spawnOptions as any)
+			if (process.platform !== "win32") {
+				// We don't need the named pipe for streaming events.
 				server.close()
-			})
-		})
 
-
-		// On Windows, the child process doesn't know which file handles are available to it.
-		// Therefore, we have to use a named pipe. This is set up with a server.
-		if (process.platform === "win32") {
-			const namedPipe = "\\\\.\\pipe\\gptscript-" + Math.floor(Math.random() * 1000000)
-			server.listen(namedPipe, () => {
-				console.debug("Server is listening on", namedPipe)
-			})
-
-			// Add the named pipe for streaming events.
-			args.unshift("--events-stream-to=" + namedPipe)
-		} else {
-			// For non-Windows systems, we just add an extra stdio pipe and use that for streaming events.
-			spawnOptions.stdio.push("pipe")
-			args.unshift("--events-stream-to=fd://" + (spawnOptions.stdio.length - 1))
-		}
-
-
-		this.process = child_process.spawn(command, args, spawnOptions as any)
-		if (process.platform !== "win32") {
-			// We don't need the named pipe for streaming events.
-			server.close()
-
-			// If the child process is not a Windows system, we can use the stdio pipe for streaming events.
-			if (this.process && this.process.stdio) {
-				const pipe = this.process.stdio[this.process.stdio.length - 1]
-				if (pipe) {
-					pipe.on("data", (data) => {
-						this.emitEvent(data.toString())
-					})
+				// If the child process is not a Windows system, we can use the stdio pipe for streaming events.
+				if (this.process && this.process.stdio) {
+					const pipe = this.process.stdio[this.process.stdio.length - 1]
+					if (pipe) {
+						pipe.on("data", (data: any) => {
+							this.emitEvent(data.toString())
+						})
+					}
 				}
 			}
-		}
 
-		if (!this.process) {
-			this.state = RunState.Error
-			this.err = "Run failed to start"
-			server.close()
-			this.promise = Promise.reject(this.err)
-			return
-		}
-
-		// Write to stdin if provided
-		if (this.process && this.process.stdin) {
-			this.process.stdin.setDefaultEncoding("utf-8")
-			if (stdin) {
-				this.process.stdin.write(stdin)
+			if (!this.process) {
+				this.state = RunState.Error
+				this.err = "Run failed to start"
+				server.close()
+				this.promise = Promise.reject(this.err)
+				return
 			}
-			this.process.stdin.end()
-		}
 
-		this.state = RunState.Running
+			// Write to stdin if provided
+			if (this.process && this.process.stdin) {
+				this.process.stdin.setDefaultEncoding("utf-8")
+				if (stdin) {
+					this.process.stdin.write(stdin)
+				}
+				this.process.stdin.end()
+			}
 
-		if (this.process.stdout) {
-			this.process.stdout.on("data", data => {
-				this.stdout = (this.stdout || "") + data
-			})
-		}
+			this.state = RunState.Running
 
-		if (this.process.stderr) {
-			this.process.stderr.on("data", data => {
-				this.stderr = (this.stderr || "") + data
-			})
-		}
-		this.promise = new Promise((resolve, reject) => {
-			// @ts-ignore
-			this.process.on("exit", (code: number | null, signal: NodeJS.Signals | null) => {
+			if (this.process.stdout) {
+				this.process.stdout.on("data", (data: any) => {
+					this.stdout = (this.stdout || "") + data
+				})
+			}
+
+			if (this.process.stderr) {
+				this.process.stderr.on("data", (data: any) => {
+					this.stderr = (this.stderr || "") + data
+				})
+			}
+
+			this.process!.on("exit", (code: number | null, signal: NodeJS.Signals | null) => {
 				server.close()
 
 				if (signal) {
@@ -160,7 +161,7 @@ export class Run extends events.EventEmitter {
 					this.err = "Run has been aborted"
 				} else if (code !== 0) {
 					this.state = RunState.Error
-					this.err = this.stderr
+					this.err = this.stderr || ""
 				} else {
 					this.state = RunState.Finished
 				}
@@ -174,43 +175,44 @@ export class Run extends events.EventEmitter {
 		})
 	}
 
-	request(path: string, tool: any): void {
+	request(path: string, tool: any) {
 		if (!this.opts.gptscriptURL) {
 			throw new Error("request() requires gptscriptURL to be set")
 		}
 		const postData = JSON.stringify({...tool, ...this.opts})
 		const options = this.requestOptions(this.opts.gptscriptURL, path, postData, tool)
 
-		this.promise = new Promise<string>((resolve, reject) => {
-			// Use frag to keep track of partial object writes.
-			let frag = ""
-			this.req = http.request(options, (res: http.IncomingMessage) => {
-				this.state = RunState.Running
-				res.on("data", (chunk: any) => {
-					const c = chunk.toString().replace(/^(data: )/, "").trim()
-					if (c === "[DONE]") {
+		this.promise = new Promise<string>(async (resolve, reject) => {
+			// This checks that the code is running in a browser. If it is, then we use SSE.
+			if (typeof window !== "undefined" && typeof window.document !== "undefined") {
+				// @ts-ignore
+				const {SSE} = await import('sse.js')
+				this.sse = new SSE(this.opts.gptscriptURL + "/" + path, {
+					headers: {"Content-Type": "application/json"},
+					payload: postData
+				} as any)
+
+				this.sse.addEventListener("open", () => {
+					this.state = RunState.Running
+				})
+
+				this.sse.addEventListener("message", (data: any) => {
+					if (data.data === "[DONE]") {
+						this.sse!.close()
 						return
 					}
 
-					let e: any
-					try {
-						e = JSON.parse(frag + c)
-					} catch {
-						frag += c
-						return
-					}
-					frag = ""
-
+					const e = JSON.parse(data.data)
 					if (e.stderr) {
 						this.stderr = (this.stderr || "") + (typeof e.stderr === "string" ? e.stderr : JSON.stringify(e.stderr))
 					} else if (e.stdout) {
 						this.stdout = (this.stdout || "") + (typeof e.stdout === "string" ? e.stdout : JSON.stringify(e.stdout))
 					} else {
-						frag = this.emitEvent(frag + c)
+						this.emitEvent(data.data)
 					}
 				})
 
-				res.on("end", () => {
+				this.sse.addEventListener("close", () => {
 					if (this.state === RunState.Running || this.state === RunState.Finished) {
 						this.state = RunState.Finished
 						resolve(this.stdout || "")
@@ -219,29 +221,82 @@ export class Run extends events.EventEmitter {
 					}
 				})
 
-				res.on("aborted", () => {
-					if (this.state !== RunState.Finished) {
+				this.sse.addEventListener("error", (err: any) => {
+					this.state = RunState.Error
+					this.err = err
+					reject(err)
+				})
+			} else {
+				// If not in the browser, then we use HTTP.
+				const http = await import('http')
+
+				// Use frag to keep track of partial object writes.
+				let frag = ""
+				this.req = http.request(options, (res: any) => {
+					this.state = RunState.Running
+					res.on("data", (chunk: any) => {
+						for (let line of (chunk.toString() + frag).split("\n")) {
+							const c = line.replace(/^(data: )/, "").trim()
+							if (!c) {
+								continue
+							}
+
+							if (c === "[DONE]") {
+								return
+							}
+
+							let e: any
+							try {
+								e = JSON.parse(c)
+							} catch {
+								frag = c
+								return
+							}
+							frag = ""
+
+							if (e.stderr) {
+								this.stderr = (this.stderr || "") + (typeof e.stderr === "string" ? e.stderr : JSON.stringify(e.stderr))
+							} else if (e.stdout) {
+								this.stdout = (this.stdout || "") + (typeof e.stdout === "string" ? e.stdout : JSON.stringify(e.stdout))
+							} else {
+								frag = this.emitEvent(c)
+							}
+						}
+					})
+
+					res.on("end", () => {
+						if (this.state === RunState.Running || this.state === RunState.Finished) {
+							this.state = RunState.Finished
+							resolve(this.stdout || "")
+						} else if (this.state === RunState.Error) {
+							reject(this.err)
+						}
+					})
+
+					res.on("aborted", () => {
+						if (this.state !== RunState.Finished) {
+							this.state = RunState.Error
+							this.err = "Run has been aborted"
+							reject(this.err)
+						}
+					})
+
+					res.on("error", (error: Error) => {
 						this.state = RunState.Error
-						this.err = "Run has been aborted"
+						this.err = error.message || ""
 						reject(this.err)
-					}
+					})
 				})
 
-				res.on("error", (error: Error) => {
+				this.req.on("error", (error: Error) => {
 					this.state = RunState.Error
-					this.err = error.message
+					this.err = error.message || ""
 					reject(this.err)
 				})
-			})
 
-			this.req.on("error", (error: Error) => {
-				this.state = RunState.Error
-				this.err = error.message
-				reject(this.err)
-			})
-
-			this.req.write(postData)
-			this.req.end()
+				this.req.write(postData)
+				this.req.end()
+			}
 		})
 	}
 
@@ -261,19 +316,23 @@ export class Run extends events.EventEmitter {
 			method: method,
 			headers: {
 				"Content-Type": "application/json",
-				"Content-Length": Buffer.byteLength(postData),
+				"Content-Length": postData.length
 			},
 		}
 	}
 
 	emitEvent(data: string): string {
-		for (const event of data.split("\n")) {
-			if (event.trim() === "") continue
+		for (let event of data.split("\n")) {
+			event = event.trim()
+
+			if (!event) {
+				continue
+			}
 			let f: Frame
 			try {
-				f = JSON.parse(event.trim()) as Frame
+				f = JSON.parse(event) as Frame
 			} catch (error) {
-				return event.trim()
+				return event
 			}
 
 			if (!this.state) {
@@ -285,12 +344,12 @@ export class Run extends events.EventEmitter {
 			} else if (f.type === RunEventType.RunFinish) {
 				if (f.err) {
 					this.state = RunState.Error
-					this.err = f.err
+					this.err = f.err || ""
 				} else {
 					this.state = RunState.Finished
 					this.stdout = f.output || ""
 				}
-			} else if (f.type.startsWith("call")) {
+			} else if ((f.type as string).startsWith("call")) {
 				let call = this.calls?.find((x) => x.id === f.callContext.id)
 
 				if (!call) {
@@ -350,42 +409,32 @@ export class Run extends events.EventEmitter {
 	public on(event: RunEventType.CallFinish, listener: (data: CallFinishFrame) => void): this;
 	public on(event: RunEventType.Event, listener: (data: Frame) => void): this;
 	public on(event: RunEventType, listener: (data: any) => void): this {
-		super.on(event, listener)
+		if (!this.callbacks[event]) {
+			this.callbacks[event] = []
+		}
+
+		this.callbacks[event].push(listener)
+
 		return this
 	}
 
-	public async text(): Promise<string> {
-		return new Promise((resolve, reject) => {
-			if (this.err) {
-				reject(this.err)
-			}
-			if (!this.promise) {
-				reject(new Error("Run not started"))
-			}
+	public text(): Promise<string> {
+		if (this.err) {
+			throw new Error(this.err)
+		}
 
-			this.promise?.then(text => {
-				resolve(text)
-			}).catch(error => {
-				reject(error)
-			})
-		})
+		if (!this.promise) {
+			throw new Error("Run not started")
+		}
+
+		return this.promise
 	}
 
-	public async json(): Promise<Record<string, any>> {
-		return new Promise((resolve, reject) => {
-			this.text().then(text => {
-				try {
-					resolve(JSON.parse(text))
-				} catch (error) {
-					reject(error)
-				}
-			}).catch(error => {
-				reject(error)
-			})
-		})
+	public async json(): Promise<any> {
+		return JSON.parse(await this.text())
 	}
 
-	public abort(): void {
+	public close(): void {
 		if (this.process) {
 			if (this.process.exitCode === null) {
 				this.process.kill("SIGKILL")
@@ -398,7 +447,18 @@ export class Run extends events.EventEmitter {
 			return
 		}
 
+		if (this.sse) {
+			this.sse.close()
+			return
+		}
+
 		throw new Error("Run not started")
+	}
+
+	private emit(event: RunEventType, data: any) {
+		for (const cb of this.callbacks[event] || []) {
+			cb(data)
+		}
 	}
 }
 
@@ -408,24 +468,6 @@ export interface ArgumentSchema {
 	type: "object"
 	properties?: Record<string, Property>
 	required?: string[]
-}
-
-export type EnvVars = string[]
-
-export interface Parameters {
-	name: string
-	description: string
-	maxTokens: number
-	modelName: string
-	modelProvider: boolean
-	jsonResponse: boolean
-	temperature: number
-	cache?: boolean
-	internalPrompt: boolean
-	arguments: ArgumentSchema
-	tools: string[]
-	export: string[]
-	blocking: boolean
 }
 
 export interface Program {
@@ -447,7 +489,21 @@ export interface Repo {
 	revision: string
 }
 
-export interface ToolDef extends Parameters {
+export interface ToolDef {
+	name: string
+	description: string
+	maxTokens: number
+	modelName: string
+	modelProvider: boolean
+	jsonResponse: boolean
+	temperature: number
+	cache?: boolean
+	internalPrompt: boolean
+	arguments: ArgumentSchema
+	tools: string[]
+	globalTools: string[]
+	export: string[]
+	blocking: boolean
 	instructions: string
 }
 
@@ -456,7 +512,6 @@ export interface Tool extends ToolDef {
 	type: "tool"
 	toolMapping: Record<string, string>
 	localTools: Record<string, string>
-	globalTools: string[]
 	source: SourceRef
 	workingDir: string
 }
@@ -495,10 +550,15 @@ export interface Call {
 	showSystemMessages?: boolean
 }
 
-export interface BaseFrame {
+interface BaseFrame {
 	type: RunEventType
 	time: string
 	runID: string
+}
+
+interface CallFrame extends BaseFrame {
+	callContext: Call
+	input: Arguments
 }
 
 export interface RunStartFrame extends BaseFrame {
@@ -512,11 +572,6 @@ export interface RunFinishFrame extends BaseFrame {
 
 	err?: string
 	output?: string
-}
-
-export interface CallFrame extends BaseFrame {
-	callContext: Call
-	input: Arguments
 }
 
 export interface CallStartFrame extends CallFrame {
@@ -626,32 +681,39 @@ function getCmdPath(): string {
 	if (process.env.GPTSCRIPT_BIN) {
 		return process.env.GPTSCRIPT_BIN
 	}
-	return path.join(__dirname, "..", "bin", "gptscript")
+	return "gptscript"
 }
 
-export async function listTools(gptscriptURL?: string): Promise<string> {
-	return await runBasicCommand("list-tools", gptscriptURL)
+export function listTools(gptscriptURL?: string): Promise<string> {
+	return runBasicCommand("list-tools", gptscriptURL)
 }
 
-export async function listModels(gptscriptURL?: string): Promise<string> {
-	return await runBasicCommand("list-models", gptscriptURL)
+export function listModels(gptscriptURL?: string): Promise<string> {
+	return runBasicCommand("list-models", gptscriptURL)
 }
 
-export async function version(gptscriptURL?: string): Promise<string> {
-	return await runBasicCommand("version", gptscriptURL)
+export function version(gptscriptURL?: string): Promise<string> {
+	return runBasicCommand("version", gptscriptURL)
 }
 
-async function runBasicCommand(cmd: string, gptscriptURL?: string): Promise<string> {
+function runBasicCommand(cmd: string, gptscriptURL?: string): Promise<string> {
 	const r = new Run("", {gptscriptURL: gptscriptURL})
 	if (gptscriptURL) {
 		r.request(cmd, null)
 	} else {
 		r.exec(getCmdPath(), ["--" + cmd])
 	}
-	return await r.text()
+	return r.text()
 }
 
-export function run(toolName: string, opts: RunOpts): Run {
+/**
+ * Runs a tool with the specified name and options.
+ *
+ * @param {string} toolName - The name of the tool to run. Can be a file path, URL, or GitHub URL.
+ * @param {RunOpts} [opts={}] - The options for running the tool.
+ * @return {Run} The Run object representing the running tool.
+ */
+export function run(toolName: string, opts: RunOpts = {}): Run {
 	const r: Run = new Run(toolName, opts)
 
 	if (opts.gptscriptURL) {
@@ -663,7 +725,14 @@ export function run(toolName: string, opts: RunOpts): Run {
 	return r
 }
 
-export function evaluate(tool: ToolDef | ToolDef[] | string, opts: RunOpts): Run {
+/**
+ * Evaluates the given tool and returns a Run object.
+ *
+ * @param {ToolDef | ToolDef[] | string} tool - The tool to be evaluated. Can be a single ToolDef object, an array of ToolDef objects, or a string representing the tool contents.
+ * @param {RunOpts} [opts={}] - Optional options for the evaluation.
+ * @return {Run} The Run object representing the evaluation.
+ */
+export function evaluate(tool: ToolDef | ToolDef[] | string, opts: RunOpts = {}): Run {
 	let toolString: string = ""
 
 	if (Array.isArray(tool)) {
@@ -697,17 +766,17 @@ export async function parse(fileName: string, gptscriptURL?: string): Promise<Bl
 	return parseBlocksFromNodes((await r.json()).nodes)
 }
 
-export async function parseTool(tool: string, gptscriptURL?: string): Promise<Block[]> {
+export async function parseTool(toolContent: string, gptscriptURL?: string): Promise<Block[]> {
 	const r: Run = new Run("", {gptscriptURL: gptscriptURL})
 	if (gptscriptURL) {
-		r.request("parse", {input: tool})
+		r.request("parse", {input: toolContent})
 	} else {
-		r.exec(getCmdPath(), ["parse", "-"], tool)
+		r.exec(getCmdPath(), ["parse", "-"], toolContent)
 	}
 	return parseBlocksFromNodes((await r.json()).nodes)
 }
 
-export async function stringify(blocks: Block[], gptscriptURL?: string): Promise<string> {
+export function stringify(blocks: Block[], gptscriptURL?: string): Promise<string> {
 	const nodes: any[] = []
 
 	for (const block of blocks) {
@@ -720,7 +789,7 @@ export async function stringify(blocks: Block[], gptscriptURL?: string): Promise
 		} else if (block.type === "text") {
 			nodes.push({
 				textNode: {
-					text: "!" + (block.format || "markdown") + "\n" + block.content
+					text: "!" + (block.format || "text") + "\n" + block.content
 				}
 			})
 		}
@@ -733,7 +802,7 @@ export async function stringify(blocks: Block[], gptscriptURL?: string): Promise
 		r.exec(getCmdPath(), ["fmt", "-"], JSON.stringify({nodes: nodes}))
 	}
 
-	return await r.text()
+	return r.text()
 }
 
 function parseBlocksFromNodes(nodes: any[]): Block[] {
@@ -746,16 +815,16 @@ function parseBlocksFromNodes(nodes: any[]): Block[] {
 			blocks.push({
 				type: "tool",
 				...node.toolNode.tool,
-			})
+			} as Tool)
 		}
 		if (node.textNode) {
-			const format = node.textNode.text.substring(1, node.textNode.text.indexOf("\n")).trim() || "markdown"
+			const format = node.textNode.text.substring(1, node.textNode.text.indexOf("\n")).trim() || "text"
 			blocks.push({
 				id: randomId("text-"),
 				type: "text",
 				format: format,
 				content: node.textNode.text.substring(node.textNode.text.indexOf("\n") + 1).trim(),
-			})
+			} as Text)
 		}
 	}
 	return blocks
@@ -775,11 +844,14 @@ function toolDefToString(tool: ToolDef) {
 	if (tool.description) {
 		toolInfo.push(`Description: ${tool.description}`)
 	}
-	if (tool.tools && tool.tools.length > 0) {
+	if (tool.globalTools?.length) {
+		toolInfo.push(`Global Tools: ${tool.globalTools.join(", ")}`)
+	}
+	if (tool.tools?.length > 0) {
 		toolInfo.push(`Tools: ${tool.tools.join(", ")}`)
 	}
 	if (tool.maxTokens !== undefined) {
-		toolInfo.push(`Max tokens: ${tool.maxTokens}`)
+		toolInfo.push(`Max Tokens: ${tool.maxTokens}`)
 	}
 	if (tool.modelName) {
 		toolInfo.push(`Model: ${tool.modelName}`)
@@ -799,9 +871,11 @@ function toolDefToString(tool: ToolDef) {
 		}
 	}
 	if (tool.internalPrompt) {
-		toolInfo.push(`Internal prompt: ${tool.internalPrompt}`)
+		toolInfo.push(`Internal Prompt: ${tool.internalPrompt}`)
 	}
+
 	if (tool.instructions) {
+		toolInfo.push("")
 		toolInfo.push(tool.instructions)
 	}
 
