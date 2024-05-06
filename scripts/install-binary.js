@@ -2,7 +2,7 @@
 
 'use strict'
 
-import { DownloaderHelper } from 'node-downloader-helper';
+import {DownloaderHelper} from 'node-downloader-helper';
 import fs from 'fs';
 import path from 'path';
 import AdmZip from 'adm-zip';
@@ -44,7 +44,7 @@ async function downloadAndExtract(url, saveDirectory) {
 async function versions_match() {
     try {
         const command = path.join(outputDir, gptscriptBinaryName) + ' --version';
-        const { stdout } = await exec(command);
+        const {stdout} = await exec(command);
         return stdout.toString().includes(gptscript_info.version);
     } catch (err) {
         console.error('Error checking gptscript version:', err);
@@ -111,6 +111,7 @@ async function needToInstall() {
         }
     }
 }
+
 (async () => {
     await needToInstall();
     if (process.env.NODE_GPTSCRIPT_SKIP_INSTALL_BINARY === 'true') {
