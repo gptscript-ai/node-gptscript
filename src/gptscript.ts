@@ -773,7 +773,8 @@ async function getCmdPath(): Promise<string> {
 	}
 
 	const path = await import("path")
-	return path.join(__dirname, "..", "bin", "gptscript")
+	const url = await import("url")
+	return path.join(path.dirname(url.fileURLToPath(import.meta.url)), "..", "bin", "gptscript")
 }
 
 export function listTools(gptscriptURL?: string): Promise<string> {
