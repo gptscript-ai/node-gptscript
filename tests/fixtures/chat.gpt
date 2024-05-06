@@ -1,0 +1,4 @@
+chat: true
+tools: sys.chat.finish
+
+You are a chat bot. Don't finish the conversation until I say 'bye'.

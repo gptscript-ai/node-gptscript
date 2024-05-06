@@ -255,4 +255,97 @@ describe("gptscript module", () => {
 		expect(response).toContain("This is a test")
 		expect(response).toContain("Args: text: The text to write")
 	})
+
+	test("exec tool with chat", async () => {
+		let err = undefined
+		const t = {
+			chat: true,
+			instructions: "You are a chat bot. Don't finish the conversation until I say 'bye'.",
+			tools: ["sys.chat.finish"]
+		}
+		const opts = {
+			disableCache: true,
+			gptscriptURL: process.env.GPTSCRIPT_URL
+		}
+		let run = gptscript.evaluate(t as any, opts)
+
+		const inputs = [
+			"List the three largest states in the United States by area.",
+			"What is the capital of the third one?",
+			"What timezone is the first one in?"
+		]
+
+		const expectedOutputs = [
+			"California",
+			"Sacramento",
+			"Alaska Time Zone"
+		]
+
+		try {
+			await run.text()
+			for (let i: number = 0; i < inputs.length; i++) {
+				run = run.nextChat(inputs[i])
+				err = run.err
+
+				if (err) {
+					break
+				}
+
+				expect(await run.text()).toContain(expectedOutputs[i])
+				expect(run.state).toEqual(gptscript.RunState.Continue)
+			}
+
+			run = run.nextChat("bye")
+			await run.text()
+		} catch (e) {
+			console.error(e)
+		}
+
+		expect(run.state).toEqual(gptscript.RunState.Finished)
+		expect(err).toEqual("")
+	}, 60000)
+
+	test("exec file with chat", async () => {
+		let err = undefined
+		const opts = {
+			disableCache: true,
+			gptscriptURL: process.env.GPTSCRIPT_URL
+		}
+		let run = gptscript.run(path.join(__dirname, "fixtures", "chat.gpt"), opts)
+
+		const inputs = [
+			"List the 3 largest of the Great Lakes by volume.",
+			"What is the volume of the second one in cubic miles?",
+			"What is the total area of the third one in square miles?"
+		]
+
+		const expectedOutputs = [
+			"Lake Superior",
+			"Lake Michigan",
+			"Lake Huron"
+		]
+
+		try {
+			await run.text()
+			for (let i: number = 0; i < inputs.length; i++) {
+				run = run.nextChat(inputs[i])
+				err = run.err
+
+				if (err) {
+					break
+				}
+
+				expect(await run.text()).toContain(expectedOutputs[i])
+				expect(run.state).toEqual(gptscript.RunState.Continue)
+			}
+
+			run = run.nextChat("bye")
+			await run.text()
+		} catch (e) {
+			console.error(e)
+		}
+
+		expect(run.state).toEqual(gptscript.RunState.Finished)
+		expect(err).toEqual("")
+	}, 60000)
 })
