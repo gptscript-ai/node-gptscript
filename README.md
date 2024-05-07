@@ -29,6 +29,14 @@ npm exec -c "gptscript https://get.gptscript.ai/echo.gpt --input 'Hello, World!'
 
 you will see "Hello, World!" in the output of the command.
 
+## Client
+
+There are currently a couple "global" options, and the client helps to manage those. A client without any options is
+likely what you want. However, here are the current global options:
+
+- `gptscriptURL`: The URL (including `http(s)://) of an "SDK server" to use instead of the fork/exec model.
+- `gptscriptBin`: The path to a `gptscript` binary to use instead of the bundled one.
+
 ## Options
 
 These are optional options that can be passed to the various `exec` functions.
@@ -52,7 +60,8 @@ Lists all the available built-in tools.
 const gptscript = require('@gptscript-ai/gptscript');
 
 async function listTools() {
-    const tools = await gptscript.listTools();
+    const client = new gptscript.Client();
+    const tools = await client.listTools();
     console.log(tools);
 }
 ```
@@ -69,7 +78,8 @@ const gptscript = require('@gptscript-ai/gptscript');
 async function listModels() {
     let models = [];
     try {
-        models = await gptscript.listModels();
+        const client = new gptscript.Client();
+        models = await client.listModels();
     } catch (error) {
         console.error(error);
     }
@@ -87,7 +97,8 @@ const gptscript = require('@gptscript-ai/gptscript');
 
 async function version() {
     try {
-        console.log(await gptscript.version());
+        const client = new gptscript.Client();
+        console.log(await client.version());
     } catch (error) {
         console.error(error);
     }
@@ -107,7 +118,8 @@ const t = {
 };
 
 try {
-    const run = gptscript.evaluate(t);
+    const client = new gptscript.Client();
+    const run = client.evaluate(t);
     console.log(await run.text());
 } catch (error) {
     console.error(error);
@@ -128,7 +140,8 @@ const opts = {
 
 async function execFile() {
     try {
-        const run = gptscript.run('./hello.gpt', opts);
+        const client = new gptscript.Client();
+        const run = client.run('./hello.gpt', opts);
         console.log(await run.text());
     } catch (e) {
         console.error(e);
@@ -165,10 +178,11 @@ const opts = {
 
 async function streamExecFileWithEvents() {
     try {
-        const run = gptscript.run('./test.gpt', opts);
+        const client = new gptscript.Client();
+        const run = client.run('./test.gpt', opts);
 
         run.on(gptscript.RunEventType.Event, data => {
-            console.log(`event: ${data}`);
+            console.log(`event: ${JSON.stringify(data)}`);
         });
 
         await run.text();
@@ -203,7 +217,8 @@ const t = {
 };
 
 async function streamExecFileWithEvents() {
-    let run = gptscript.evaluate(t, opts);
+    const client = new gptscript.Client();
+    let run = client.evaluate(t, opts);
     try {
         // Wait for the initial run to complete.
         await run.text();
