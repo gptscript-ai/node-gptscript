@@ -224,7 +224,7 @@ async function streamExecFileWithEvents() {
         // Wait for the initial run to complete.
         await run.text();
 
-        while (run.RunState === gptscript.RunState.Continue) {
+        while (run.state === gptscript.RunState.Continue) {
             // ...Get the next input from the user somehow...
 
             run = run.nextChat(inputFromUser)
