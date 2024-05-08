@@ -305,8 +305,9 @@ export class Run {
 			this.state = RunState.Running
 
 			if (this.process.stdout) {
+				let frag = ""
 				this.process.stdout.on("data", (data: any) => {
-					this.processStdout(data.toString())
+					frag = this.processStdout(frag + data.toString())
 				})
 			}
 
@@ -339,17 +340,16 @@ export class Run {
 		})
 	}
 
-	processStdout(data: string | object): void {
+	processStdout(data: string | object): string {
 		if (typeof data === "string") {
 			if (data.trim() === "") {
-				return
+				return ""
 			}
 
 			try {
 				data = JSON.parse(data)
 			} catch (e) {
-				this.err = `Failed to parse stdout: "${data}"`
-				return
+				return data as string
 			}
 		}
 
@@ -361,6 +361,8 @@ export class Run {
 			this.state = RunState.Finished
 			this.chatState = undefined
 		}
+
+		return ""
 	}
 
 	request(tool: any) {
@@ -655,12 +657,14 @@ class RunSubcommand extends Run {
 		super(subCommand, path, content, opts, bin, gptscriptURL)
 	}
 
-	processStdout(data: string | object) {
+	processStdout(data: string | object): string {
 		if (typeof data === "string") {
 			this.stdout = (this.stdout || "") + data
 		} else {
 			this.stdout = JSON.stringify(data)
 		}
+
+		return ""
 	}
 }
 
