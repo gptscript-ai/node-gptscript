@@ -2,7 +2,6 @@
 import type {SSE} from "sse.js"
 
 export interface RunOpts {
-	gptscriptURL?: string
 	input?: string
 	cacheDir?: string
 	disableCache?: boolean
@@ -40,15 +39,132 @@ export enum RunEventType {
 	CallFinish = "callFinish",
 }
 
+export class Client {
+	public readonly gptscriptURL?: string
+	public gptscriptBin?: string
+
+	constructor(gptscriptURL?: string, gptscriptBin?: string) {
+		this.gptscriptURL = gptscriptURL
+		this.gptscriptBin = gptscriptBin
+	}
+
+	listTools(): Promise<string> {
+		return this.runBasicCommand("list-tools")
+	}
+
+	listModels(): Promise<string> {
+		return this.runBasicCommand("list-models")
+	}
+
+	version(): Promise<string> {
+		return this.runBasicCommand("version")
+	}
+
+	async runBasicCommand(cmd: string): Promise<string> {
+		const r = new RunSubcommand(cmd, "", "", {}, this.gptscriptBin, this.gptscriptURL)
+		if (this.gptscriptURL) {
+			r.request(null)
+		} else {
+			await r.exec(["--" + cmd])
+		}
+		return r.text()
+	}
+
+	/**
+	 * Runs a tool with the specified name and options.
+	 *
+	 * @param {string} toolName - The name of the tool to run. Can be a file path, URL, or GitHub URL.
+	 * @param {RunOpts} [opts={}] - The options for running the tool.
+	 * @return {Run} The Run object representing the running tool.
+	 */
+	run(toolName: string, opts: RunOpts = {}): Run {
+		return (new Run("run-file-stream-with-events", toolName, "", opts)).nextChat(opts.input)
+	}
+
+	/**
+	 * Evaluates the given tool and returns a Run object.
+	 *
+	 * @param {ToolDef | ToolDef[] | string} tool - The tool to be evaluated. Can be a single ToolDef object, an array of ToolDef objects, or a string representing the tool contents.
+	 * @param {RunOpts} [opts={}] - Optional options for the evaluation.
+	 * @return {Run} The Run object representing the evaluation.
+	 */
+	evaluate(tool: ToolDef | ToolDef[] | string, opts: RunOpts = {}): Run {
+		let toolString: string = ""
+
+		if (Array.isArray(tool)) {
+			toolString = toolArrayToContents(tool)
+		} else if (typeof tool === "string") {
+			toolString = tool
+		} else {
+			toolString = toolDefToString(tool)
+		}
+
+		return (new Run("run-tool-stream-with-event", "", toolString, opts)).nextChat(opts.input)
+	}
+
+	async parse(fileName: string): Promise<Block[]> {
+		const r: Run = new RunSubcommand("parse", fileName, "", {}, this.gptscriptBin, this.gptscriptURL)
+		if (this.gptscriptURL) {
+			r.request({file: fileName})
+		} else {
+			await r.exec(["parse"])
+		}
+		return parseBlocksFromNodes((await r.json()).nodes)
+	}
+
+	async parseTool(toolContent: string): Promise<Block[]> {
+		const r: Run = new RunSubcommand("parse", "", toolContent, {}, this.gptscriptBin, this.gptscriptURL)
+		if (this.gptscriptURL) {
+			r.request({input: toolContent})
+		} else {
+			await r.exec(["parse"])
+		}
+		return parseBlocksFromNodes((await r.json()).nodes)
+	}
+
+	async stringify(blocks: Block[]): Promise<string> {
+		const nodes: any[] = []
+
+		for (const block of blocks) {
+			if (block.type === "tool") {
+				nodes.push({
+					toolNode: {
+						tool: block
+					}
+				})
+			} else if (block.type === "text") {
+				nodes.push({
+					textNode: {
+						text: "!" + (block.format || "text") + "\n" + block.content
+					}
+				})
+			}
+		}
+
+		const r: Run = new RunSubcommand("fmt", "", JSON.stringify({nodes: nodes}), {}, this.gptscriptBin, this.gptscriptURL)
+		if (this.gptscriptURL) {
+			r.request({nodes: nodes})
+		} else {
+			await r.exec(["fmt"])
+		}
+
+		return r.text()
+	}
+}
+
 export class Run {
 	public readonly id: string
 	public readonly opts: RunOpts
-	public state: RunState = RunState.Creating
-	public calls: Call[] = []
-	public err = ""
 	public readonly filePath: string
 	public readonly content: string
+	public state: RunState = RunState.Creating
+	public calls: Call[] = []
+	public err: string = ""
+
 	protected stdout?: string
+
+	private readonly bin?: string
+	private readonly gptscriptURL?: string
 	private readonly requestPath: string = ""
 	private promise?: Promise<string>
 	private process?: any
@@ -58,12 +174,17 @@ export class Run {
 	private callbacks: Record<string, ((f: Frame) => void)[]> = {}
 	private chatState: string | undefined
 
-	constructor(subCommand: string, path: string, content: string, opts: RunOpts) {
+	constructor(subCommand: string, path: string, content: string, opts: RunOpts, bin?: string, gptscriptURL?: string) {
 		this.id = randomId("run-")
 		this.requestPath = subCommand
 		this.opts = opts
 		this.filePath = path
 		this.content = content
+
+		if (bin) {
+			this.bin = bin
+		}
+		this.gptscriptURL = gptscriptURL
 	}
 
 	nextChat(input: string = ""): Run {
@@ -78,7 +199,7 @@ export class Run {
 
 		run.chatState = this.chatState
 		run.opts.input = input
-		if (run.opts.gptscriptURL) {
+		if (run.gptscriptURL) {
 			if (run.content !== "") {
 				run.request({content: this.content})
 			} else {
@@ -86,8 +207,8 @@ export class Run {
 			}
 		} else {
 			run.exec().catch((e) => {
-					run.state = RunState.Error
 					run.err = e.toString()
+					run.state = RunState.Error
 				}
 			)
 		}
@@ -146,7 +267,7 @@ export class Run {
 
 			const child_process = await import("child_process")
 
-			this.process = child_process.spawn(await getCmdPath(), extraArgs, spawnOptions as any)
+			this.process = child_process.spawn(this.bin || await getCmdPath(), extraArgs, spawnOptions as any)
 			if (process.platform !== "win32") {
 				// We don't need the named pipe for streaming events.
 				server.close()
@@ -165,8 +286,8 @@ export class Run {
 			}
 
 			if (!this.process) {
-				this.state = RunState.Error
 				this.err = "Run failed to start"
+				this.state = RunState.Error
 				server.close()
 				this.promise = Promise.reject(this.err)
 				return
@@ -199,11 +320,11 @@ export class Run {
 				server.close()
 
 				if (signal) {
-					this.state = RunState.Error
 					this.err = "Run has been aborted"
-				} else if (code !== 0) {
 					this.state = RunState.Error
+				} else if (code !== 0) {
 					this.err = this.stderr || ""
+					this.state = RunState.Error
 				} else if (this.state !== RunState.Continue) {
 					this.state = RunState.Finished
 				}
@@ -243,18 +364,18 @@ export class Run {
 	}
 
 	request(tool: any) {
-		if (!this.opts.gptscriptURL) {
+		if (!this.gptscriptURL) {
 			throw new Error("request() requires gptscriptURL to be set")
 		}
 		const postData = JSON.stringify({...tool, ...this.opts})
-		const options = this.requestOptions(this.opts.gptscriptURL, this.requestPath, postData, tool)
+		const options = this.requestOptions(this.gptscriptURL, this.requestPath, postData, tool)
 
 		this.promise = new Promise<string>(async (resolve, reject) => {
 			// This checks that the code is running in a browser. If it is, then we use SSE.
 			if (typeof window !== "undefined" && typeof window.document !== "undefined") {
 				// @ts-ignore
 				const {SSE} = await import("sse.js")
-				this.sse = new SSE(this.opts.gptscriptURL + "/" + this.filePath, {
+				this.sse = new SSE(this.gptscriptURL + "/" + this.filePath, {
 					headers: {"Content-Type": "application/json"},
 					payload: postData
 				} as any)
@@ -530,8 +651,8 @@ export class Run {
 }
 
 class RunSubcommand extends Run {
-	constructor(subCommand: string, path: string, content: string, opts: RunOpts) {
-		super(subCommand, path, content, opts)
+	constructor(subCommand: string, path: string, content: string, opts: RunOpts, bin?: string, gptscriptURL?: string) {
+		super(subCommand, path, content, opts, bin, gptscriptURL)
 	}
 
 	processStdout(data: string | object) {
@@ -775,109 +896,6 @@ async function getCmdPath(): Promise<string> {
 	const path = await import("path")
 	const url = await import("url")
 	return path.join(path.dirname(url.fileURLToPath(import.meta.url)), "..", "bin", "gptscript")
-}
-
-export function listTools(gptscriptURL?: string): Promise<string> {
-	return runBasicCommand("list-tools", gptscriptURL)
-}
-
-export function listModels(gptscriptURL?: string): Promise<string> {
-	return runBasicCommand("list-models", gptscriptURL)
-}
-
-export function version(gptscriptURL?: string): Promise<string> {
-	return runBasicCommand("version", gptscriptURL)
-}
-
-async function runBasicCommand(cmd: string, gptscriptURL?: string): Promise<string> {
-	const r = new RunSubcommand(cmd, "", "", {gptscriptURL: gptscriptURL})
-	if (gptscriptURL) {
-		r.request(null)
-	} else {
-		await r.exec(["--" + cmd])
-	}
-	return r.text()
-}
-
-/**
- * Runs a tool with the specified name and options.
- *
- * @param {string} toolName - The name of the tool to run. Can be a file path, URL, or GitHub URL.
- * @param {RunOpts} [opts={}] - The options for running the tool.
- * @return {Run} The Run object representing the running tool.
- */
-export function run(toolName: string, opts: RunOpts = {}): Run {
-	return (new Run("run-file-stream-with-events", toolName, "", opts)).nextChat(opts.input)
-}
-
-/**
- * Evaluates the given tool and returns a Run object.
- *
- * @param {ToolDef | ToolDef[] | string} tool - The tool to be evaluated. Can be a single ToolDef object, an array of ToolDef objects, or a string representing the tool contents.
- * @param {RunOpts} [opts={}] - Optional options for the evaluation.
- * @return {Run} The Run object representing the evaluation.
- */
-export function evaluate(tool: ToolDef | ToolDef[] | string, opts: RunOpts = {}): Run {
-	let toolString: string = ""
-
-	if (Array.isArray(tool)) {
-		toolString = toolArrayToContents(tool)
-	} else if (typeof tool === "string") {
-		toolString = tool
-	} else {
-		toolString = toolDefToString(tool)
-	}
-
-	return (new Run("run-tool-stream-with-event", "", toolString, opts)).nextChat(opts.input)
-}
-
-export async function parse(fileName: string, gptscriptURL?: string): Promise<Block[]> {
-	const r: Run = new RunSubcommand("parse", fileName, "", {gptscriptURL: gptscriptURL})
-	if (gptscriptURL) {
-		r.request({file: fileName})
-	} else {
-		await r.exec(["parse"])
-	}
-	return parseBlocksFromNodes((await r.json()).nodes)
-}
-
-export async function parseTool(toolContent: string, gptscriptURL?: string): Promise<Block[]> {
-	const r: Run = new RunSubcommand("parse", "", toolContent, {gptscriptURL: gptscriptURL})
-	if (gptscriptURL) {
-		r.request({input: toolContent})
-	} else {
-		await r.exec(["parse"])
-	}
-	return parseBlocksFromNodes((await r.json()).nodes)
-}
-
-export async function stringify(blocks: Block[], gptscriptURL?: string): Promise<string> {
-	const nodes: any[] = []
-
-	for (const block of blocks) {
-		if (block.type === "tool") {
-			nodes.push({
-				toolNode: {
-					tool: block
-				}
-			})
-		} else if (block.type === "text") {
-			nodes.push({
-				textNode: {
-					text: "!" + (block.format || "text") + "\n" + block.content
-				}
-			})
-		}
-	}
-
-	const r: Run = new RunSubcommand("fmt", "", JSON.stringify({nodes: nodes}), {gptscriptURL: gptscriptURL})
-	if (gptscriptURL) {
-		r.request({nodes: nodes})
-	} else {
-		await r.exec(["fmt"])
-	}
-
-	return r.text()
 }
 
 function parseBlocksFromNodes(nodes: any[]): Block[] {
