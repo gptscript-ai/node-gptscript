@@ -51,5 +51,6 @@ coverage
 bin/
 dist/
 lib/
+workspace/
 
 .npmrc

@@ -338,4 +338,15 @@ describe("gptscript module", () => {
 		expect(run.state).toEqual(gptscript.RunState.Finished)
 		expect(err).toEqual("")
 	}, 60000)
+
+	test("with workspace", async () => {
+		const t0 = {
+			tools: ["sys.workspace.ls", "sys.workspace.write"],
+			instructions: "Write a file named 'test.txt' in the workspace with contents 'Hello!' and then list the files in the workspace.",
+		} as any
+
+		const response = await client.evaluate(t0, {workspace: "./workspace"}).text()
+		expect(response).toBeDefined()
+		expect(response).toContain("test.txt")
+	}, 30000)
 })

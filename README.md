@@ -42,11 +42,12 @@ likely what you want. However, here are the current global options:
 These are optional options that can be passed to the various `exec` functions.
 None of the options is required, and the defaults will reduce the number of calls made to the Model API.
 
-- `disableCache`: Enable or disable caching. Default (true).
-- `cacheDir`: Specify the cache directory.
+- `disableCache`: Enable or disable caching, default (true)
+- `cacheDir`: Specify the cache directory
 - `quiet`: No output logging
 - `chdir`: Change current working directory
 - `subTool`: Use tool of this name, not the first tool
+- `workspace`: Directory to use for the workspace, if specified it will not be deleted on exit
 
 ## Functions
 
