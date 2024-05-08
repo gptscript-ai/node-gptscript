@@ -8,6 +8,7 @@ export interface RunOpts {
 	quiet?: boolean
 	chdir?: string
 	subTool?: string
+	workspace?: string
 }
 
 function toArgs(opts: RunOpts): string[] {
@@ -18,6 +19,7 @@ function toArgs(opts: RunOpts): string[] {
 		quiet: "--quiet=",
 		chdir: "--chdir=",
 		subTool: "--sub-tool=",
+		workspace: "--workspace=",
 	}
 	for (const [key, value] of Object.entries(opts)) {
 		if (optToArg[key] && value !== undefined) {
