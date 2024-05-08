@@ -80,7 +80,7 @@ export class Client {
 	 * @return {Run} The Run object representing the running tool.
 	 */
 	run(toolName: string, opts: RunOpts = {}): Run {
-		return (new Run("run-file-stream-with-events", toolName, "", opts)).nextChat(opts.input)
+		return (new Run("run-file-stream-with-events", toolName, "", opts, this.gptscriptBin, this.gptscriptURL)).nextChat(opts.input)
 	}
 
 	/**
@@ -101,7 +101,7 @@ export class Client {
 			toolString = toolDefToString(tool)
 		}
 
-		return (new Run("run-tool-stream-with-event", "", toolString, opts)).nextChat(opts.input)
+		return (new Run("run-tool-stream-with-event", "", toolString, opts, this.gptscriptBin, this.gptscriptURL)).nextChat(opts.input)
 	}
 
 	async parse(fileName: string): Promise<Block[]> {
@@ -196,7 +196,7 @@ export class Run {
 
 		let run = this
 		if (run.state !== RunState.Creating) {
-			run = new (this.constructor as any)(run.requestPath, run.filePath, run.content, run.opts)
+			run = new (this.constructor as any)(run.requestPath, run.filePath, run.content, run.opts, run.gptscriptURL)
 		}
 
 		run.chatState = this.chatState
@@ -379,9 +379,10 @@ export class Run {
 			if (typeof window !== "undefined" && typeof window.document !== "undefined") {
 				// @ts-ignore
 				const {SSE} = await import("sse.js")
-				this.sse = new SSE(this.gptscriptURL + "/" + this.filePath, {
+				this.sse = new SSE(this.gptscriptURL + "/" + this.requestPath, {
 					headers: {"Content-Type": "application/json"},
-					payload: postData
+					payload: tool ? postData : undefined,
+					method: tool ? "POST" : "GET"
 				} as any)
 
 				this.sse.addEventListener("open", () => {
