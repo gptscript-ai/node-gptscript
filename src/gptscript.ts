@@ -902,7 +902,7 @@ async function getCmdPath(): Promise<string> {
 
 	const path = await import("path")
 	const url = await import("url")
-	return path.join(path.dirname(url.fileURLToPath(import.meta.url)), "..", "bin", "gptscript")
+	return path.join(path.dirname(url.fileURLToPath(import.meta.url)), "..", "..", "bin", "gptscript")
 }
 
 function parseBlocksFromNodes(nodes: any[]): Block[] {
