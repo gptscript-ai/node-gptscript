@@ -26,6 +26,9 @@
     "gpt",
     "AI"
   ],
+  "browser": {
+    "child_process": false
+  },
   "author": "Bill Maxwell <bill@acorn.io>",
   "license": "Apache-2.0",
   "peerDependencies": {
@@ -35,6 +38,8 @@
     "@babel/template": "^7.24.0",
     "@babel/types": "^7.24.5",
     "adm-zip": "^0.5.10",
+    "child_process": "^1.0.2",
+    "net": "^1.0.2",
     "node-downloader-helper": "^2.1.9",
     "tar": "^6.2.0"
   },
