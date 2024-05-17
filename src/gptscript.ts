@@ -729,6 +729,7 @@ export interface ToolDef {
 	arguments: ArgumentSchema
 	tools: string[]
 	globalTools: string[]
+	context: string[]
 	export: string[]
 	blocking: boolean
 	instructions: string
@@ -959,6 +960,12 @@ function toolDefToString(tool: ToolDef) {
 	}
 	if (tool.tools?.length > 0) {
 		toolInfo.push(`Tools: ${tool.tools.join(", ")}`)
+	}
+	if (tool.context?.length > 0) {
+		toolInfo.push(`Context: ${tool.context.join(", ")}`)
+	}
+	if (tool.export?.length > 0) {
+		toolInfo.push(`Export: ${tool.export.join(", ")}`)
 	}
 	if (tool.maxTokens !== undefined) {
 		toolInfo.push(`Max Tokens: ${tool.maxTokens}`)

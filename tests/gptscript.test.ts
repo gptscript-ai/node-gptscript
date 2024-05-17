@@ -63,6 +63,26 @@ describe("gptscript module", () => {
 		expect(err).toEqual("")
 	})
 
+	test("evaluate executes a prompt correctly with context", async () => {
+		let out = ""
+		let err = undefined
+		const t = {
+			instructions: "who was the president of the united states in 1928?",
+			context: [path.join(__dirname, "fixtures", "acorn-labs-context.gpt")]
+		}
+
+		try {
+			const run = client.evaluate(t as any, {disableCache: true})
+			out = await run.text()
+			err = run.err
+		} catch (e) {
+			console.error(e)
+		}
+
+		expect(out).toContain("Acorn Labs")
+		expect(err).toEqual("")
+	})
+
 	describe("run with test.gpt fixture", () => {
 		test("should execute test.gpt correctly", async () => {
 			const testGptPath = path.join(__dirname, "fixtures", "test.gpt")
