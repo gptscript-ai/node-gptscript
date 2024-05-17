@@ -27,7 +27,7 @@ To ensure it is working properly, you can run the following command:
 npm exec -c "gptscript https://get.gptscript.ai/echo.gpt --input 'Hello, World!'"
 ```
 
-you will see "Hello, World!" in the output of the command.
+You will see "Hello, World!" in the output of the command.
 
 ## Client
 

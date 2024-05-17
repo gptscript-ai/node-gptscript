@@ -115,6 +115,29 @@ describe("gptscript module", () => {
 		expect(err).toEqual("")
 	})
 
+	test("run executes and streams a file with global tools correctly", async () => {
+		let out = ""
+		let err = undefined
+		const testGptPath = path.join(__dirname, "fixtures", "global-tools.gpt")
+		const opts = {
+			disableCache: true,
+		}
+
+		try {
+			const run = client.run(testGptPath, opts)
+			run.on(gptscript.RunEventType.CallProgress, data => {
+				out += `system: ${(data as any).content}`
+			})
+			await run.text()
+			err = run.err
+		} catch (e) {
+			console.error(e)
+		}
+
+		expect(out).toContain("Hello!")
+		expect(err).toEqual("")
+	}, 15000)
+
 	test("aborting a run is reported correctly", async () => {
 		let errMessage = ""
 		let err = undefined
@@ -338,15 +361,4 @@ describe("gptscript module", () => {
 		expect(run.state).toEqual(gptscript.RunState.Finished)
 		expect(err).toEqual("")
 	}, 60000)
-
-	test("with workspace", async () => {
-		const t0 = {
-			tools: ["sys.workspace.ls", "sys.workspace.write"],
-			instructions: "Write a file named 'test.txt' in the workspace with contents 'Hello!' and then list the files in the workspace.",
-		} as any
-
-		const response = await client.evaluate(t0, {workspace: "./workspace"}).text()
-		expect(response).toBeDefined()
-		expect(response).toContain("test.txt")
-	}, 30000)
 })

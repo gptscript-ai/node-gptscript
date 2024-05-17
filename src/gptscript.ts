@@ -80,7 +80,7 @@ export class Client {
 	 * @return {Run} The Run object representing the running tool.
 	 */
 	run(toolName: string, opts: RunOpts = {}): Run {
-		return (new Run("run-file-stream-with-events", toolName, "", opts, this.gptscriptBin, this.gptscriptURL)).nextChat(opts.input)
+		return (new Run("run", toolName, "", opts, this.gptscriptBin, this.gptscriptURL)).nextChat(opts.input)
 	}
 
 	/**
@@ -101,7 +101,7 @@ export class Client {
 			toolString = toolDefToString(tool)
 		}
 
-		return (new Run("run-tool-stream-with-event", "", toolString, opts, this.gptscriptBin, this.gptscriptURL)).nextChat(opts.input)
+		return (new Run("evaluate", "", toolString, opts, this.gptscriptBin, this.gptscriptURL)).nextChat(opts.input)
 	}
 
 	async parse(fileName: string): Promise<Block[]> {
@@ -117,7 +117,7 @@ export class Client {
 	async parseTool(toolContent: string): Promise<Block[]> {
 		const r: Run = new RunSubcommand("parse", "", toolContent, {}, this.gptscriptBin, this.gptscriptURL)
 		if (this.gptscriptURL) {
-			r.request({input: toolContent})
+			r.request({content: toolContent})
 		} else {
 			await r.exec(["parse"])
 		}
@@ -196,29 +196,25 @@ export class Run {
 
 		let run = this
 		if (run.state !== RunState.Creating) {
-			run = new (this.constructor as any)(run.requestPath, run.filePath, run.content, run.opts, run.gptscriptURL)
+			run = new (this.constructor as any)(this.requestPath, this.filePath, this.content, this.opts, this.bin, this.gptscriptURL)
 		}
 
 		run.chatState = this.chatState
 		run.opts.input = input
 		if (run.gptscriptURL) {
 			if (run.content !== "") {
-				run.request({content: this.content})
+				run.request({content: this.content, chatState: JSON.stringify(run.chatState)})
 			} else {
-				run.request({file: this.filePath})
+				run.request({file: this.filePath, chatState: JSON.stringify(run.chatState)})
 			}
 		} else {
-			run.exec().catch((e) => {
-					run.err = e.toString()
-					run.state = RunState.Error
-				}
-			)
+			run.exec()
 		}
 
 		return run
 	}
 
-	async exec(extraArgs: string[] = [], env: NodeJS.Dict<string> = process.env) {
+	exec(extraArgs: string[] = [], env: NodeJS.Dict<string> = process.env) {
 		extraArgs.push(...toArgs(this.opts))
 		extraArgs.push("--chat-state=" + (this.chatState ? JSON.stringify(this.chatState) : "null"))
 		this.chatState = undefined
@@ -406,9 +402,16 @@ export class Run {
 				})
 
 				this.sse.addEventListener("close", () => {
-					if (this.state === RunState.Running || this.state === RunState.Finished) {
-						this.state = RunState.Finished
-						resolve(this.stdout || "")
+					if (this.state === RunState.Running || this.state === RunState.Finished || this.state === RunState.Continue) {
+						if (this.stdout) {
+							if (this.state !== RunState.Continue) {
+								this.state = RunState.Finished
+							}
+							resolve(this.stdout)
+						} else {
+							this.state = RunState.Error
+							reject(this.stderr)
+						}
 					} else if (this.state === RunState.Error) {
 						reject(this.err)
 					}
@@ -458,9 +461,16 @@ export class Run {
 					})
 
 					res.on("end", () => {
-						if (this.state === RunState.Running || this.state === RunState.Finished) {
-							this.state = RunState.Finished
-							resolve(this.stdout || "")
+						if (this.state === RunState.Running || this.state === RunState.Finished || this.state === RunState.Continue) {
+							if (this.stdout) {
+								if (this.state !== RunState.Continue) {
+									this.state = RunState.Finished
+								}
+								resolve(this.stdout)
+							} else {
+								this.state = RunState.Error
+								reject(this.stderr)
+							}
 						} else if (this.state === RunState.Error) {
 							reject(this.err)
 						}
