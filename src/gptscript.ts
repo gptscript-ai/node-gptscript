@@ -9,6 +9,7 @@ export interface RunOpts {
 	chdir?: string
 	subTool?: string
 	workspace?: string
+	chatState?: string
 }
 
 function toArgs(opts: RunOpts): string[] {
@@ -174,7 +175,7 @@ export class Run {
 	private req?: any
 	private stderr?: string
 	private callbacks: Record<string, ((f: Frame) => void)[]> = {}
-	private chatState: string | undefined
+	private chatState?: string
 
 	constructor(subCommand: string, path: string, content: string, opts: RunOpts, bin?: string, gptscriptURL?: string) {
 		this.id = randomId("run-")
@@ -199,13 +200,17 @@ export class Run {
 			run = new (this.constructor as any)(this.requestPath, this.filePath, this.content, this.opts, this.bin, this.gptscriptURL)
 		}
 
-		run.chatState = this.chatState
+		if (this.chatState) {
+			run.chatState = this.chatState
+		} else if (this.opts.chatState) {
+			run.chatState = this.opts.chatState
+		}
 		run.opts.input = input
 		if (run.gptscriptURL) {
 			if (run.content !== "") {
-				run.request({content: this.content, chatState: JSON.stringify(run.chatState)})
+				run.request({content: this.content, chatState: run.chatState})
 			} else {
-				run.request({file: this.filePath, chatState: JSON.stringify(run.chatState)})
+				run.request({file: this.filePath, chatState: run.chatState})
 			}
 		} else {
 			run.exec()
@@ -216,7 +221,7 @@ export class Run {
 
 	exec(extraArgs: string[] = [], env: NodeJS.Dict<string> = process.env) {
 		extraArgs.push(...toArgs(this.opts))
-		extraArgs.push("--chat-state=" + (this.chatState ? JSON.stringify(this.chatState) : "null"))
+		extraArgs.push("--chat-state=" + (this.chatState ? this.chatState : "null"))
 		this.chatState = undefined
 
 		if (this.filePath) {
@@ -353,7 +358,7 @@ export class Run {
 
 		const out = data as ChatState
 		if (out.done !== undefined && !out.done) {
-			this.chatState = out.state
+			this.chatState = JSON.stringify(out.state)
 			this.state = RunState.Continue
 		} else {
 			this.state = RunState.Finished
@@ -635,6 +640,10 @@ export class Run {
 
 	public async json(): Promise<any> {
 		return JSON.parse(await this.text())
+	}
+
+	public currentChatState(): string | undefined {
+		return this.chatState
 	}
 
 	public close(): void {

@@ -381,4 +381,47 @@ describe("gptscript module", () => {
 		expect(run.state).toEqual(gptscript.RunState.Finished)
 		expect(err).toEqual("")
 	}, 60000)
+
+	test("nextChat on file providing chat state", async () => {
+		let run = client.run(path.join(__dirname, "fixtures", "chat.gpt"), {disableCache: true})
+
+		run = run.nextChat("List the 3 largest of the Great Lakes by volume.")
+		expect(await run.text()).toContain("Lake Superior")
+		expect(run.err).toEqual("")
+		expect(run.state).toEqual(gptscript.RunState.Continue)
+
+		run = client.run(path.join(__dirname, "fixtures", "chat.gpt"), {
+			disableCache: true,
+			input: "What is the total area of the third one in square miles?",
+			chatState: run.currentChatState()
+		})
+
+		expect(await run.text()).toContain("Lake Huron")
+		expect(run.err).toEqual("")
+		expect(run.state).toEqual(gptscript.RunState.Continue)
+	}, 10000)
+
+	test("nextChat on tool providing chat state", async () => {
+		const t = {
+			chat: true,
+			instructions: "You are a chat bot. Don't finish the conversation until I say 'bye'.",
+			tools: ["sys.chat.finish"]
+		}
+		let run = client.evaluate(t as any, {disableCache: true})
+
+		run = run.nextChat("List the three largest states in the United States by area.")
+		expect(await run.text()).toContain("California")
+		expect(run.err).toEqual("")
+		expect(run.state).toEqual(gptscript.RunState.Continue)
+
+		run = client.evaluate(t as any, {
+			disableCache: true,
+			input: "What is the capital of the second one?",
+			chatState: run.currentChatState()
+		})
+
+		expect(await run.text()).toContain("Austin")
+		expect(run.err).toEqual("")
+		expect(run.state).toEqual(gptscript.RunState.Continue)
+	}, 10000)
 })
