@@ -4,7 +4,7 @@ Runbook 3
 
 ---
 Name: tool_1
-Global Tools: sys.workspace.ls, sys.workspace.read, sys.workspace.write, github.com/gptscript-ai/knowledge, github.com/drpebcak/duckdb, github.com/gptscript-ai/browser, github.com/gptscript-ai/browser-search/google, github.com/gptscript-ai/browser-search/google-question-answerer
+Global Tools: sys.read, sys.write, github.com/gptscript-ai/knowledge, github.com/drpebcak/duckdb, github.com/gptscript-ai/browser, github.com/gptscript-ai/browser-search/google, github.com/gptscript-ai/browser-search/google-question-answerer
 
 Say "Hello!"
 
