@@ -279,8 +279,9 @@ export class Run {
 				if (this.process && this.process.stdio) {
 					const pipe = this.process.stdio[this.process.stdio.length - 1]
 					if (pipe) {
+						let frag = ""
 						pipe.on("data", (data: any) => {
-							this.emitEvent(data.toString())
+							frag = this.emitEvent(frag + data.toString())
 						})
 					} else {
 						console.error("Failed to get event stream")
@@ -357,7 +358,7 @@ export class Run {
 		}
 
 		const out = data as ChatState
-		if (out.done !== undefined && !out.done) {
+		if (out.done === undefined || !out.done) {
 			this.chatState = JSON.stringify(out.state)
 			this.state = RunState.Continue
 		} else {
@@ -458,7 +459,7 @@ export class Run {
 							if (e.stderr) {
 								this.stderr = (this.stderr || "") + (typeof e.stderr === "string" ? e.stderr : JSON.stringify(e.stderr))
 							} else if (e.stdout) {
-								this.processStdout(e.stdout)
+								frag = this.processStdout(e.stdout)
 							} else {
 								frag = this.emitEvent(c)
 							}
