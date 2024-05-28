@@ -1,34 +1,16 @@
-// @ts-ignore
-import type {SSE} from "sse.js"
+import http from "http"
+import path from "path"
+import child_process from "child_process"
 
 export interface RunOpts {
 	input?: string
-	cacheDir?: string
 	disableCache?: boolean
 	quiet?: boolean
 	chdir?: string
 	subTool?: string
 	workspace?: string
 	chatState?: string
-}
-
-function toArgs(opts: RunOpts): string[] {
-	const args: string[] = []
-	const optToArg: Record<string, string> = {
-		disableCache: "--disable-cache=",
-		cacheDir: "--cache-dir=",
-		quiet: "--quiet=",
-		chdir: "--chdir=",
-		subTool: "--sub-tool=",
-		workspace: "--workspace=",
-	}
-	for (const [key, value] of Object.entries(opts)) {
-		if (optToArg[key] && value !== undefined) {
-			args.push(optToArg[key] + value)
-		}
-	}
-
-	return args
+	confirm?: boolean
 }
 
 export enum RunEventType {
@@ -37,18 +19,43 @@ export enum RunEventType {
 	RunFinish = "runFinish",
 	CallStart = "callStart",
 	CallChat = "callChat",
+	CallSubCalls = "callSubCalls",
 	CallProgress = "callProgress",
+	CallConfirm = "callConfirm",
 	CallContinue = "callContinue",
 	CallFinish = "callFinish",
 }
 
-export class Client {
-	public readonly gptscriptURL?: string
-	public gptscriptBin?: string
+let serverProcess: child_process.ChildProcess
+let clientCount: number = 0
 
-	constructor(gptscriptURL?: string, gptscriptBin?: string) {
-		this.gptscriptURL = gptscriptURL
-		this.gptscriptBin = gptscriptBin
+export class Client {
+	private readonly gptscriptURL: string
+	private clientReady: boolean
+
+	constructor() {
+		this.clientReady = false
+		this.gptscriptURL = "http://" + (process.env.GPTSCRIPT_URL || "127.0.0.1:9090")
+		clientCount++
+		if (clientCount === 1 && process.env.GPTSCRIPT_DISABLE_SERVER !== "true") {
+			serverProcess = child_process.spawn(getCmdPath(), ["--listen-address", this.gptscriptURL.replace("http://", "").replace("https://", ""), "sdkserver"], {
+				env: process.env,
+				stdio: ["pipe"]
+			})
+
+			process.on("exit", (code) => {
+				serverProcess.stdin?.end()
+				serverProcess.kill(code)
+			})
+		}
+	}
+
+	close(): void {
+		clientCount--
+		if (clientCount === 0 && serverProcess) {
+			serverProcess.kill("SIGTERM")
+			serverProcess.stdin?.end()
+		}
 	}
 
 	listTools(): Promise<string> {
@@ -64,12 +71,11 @@ export class Client {
 	}
 
 	async runBasicCommand(cmd: string): Promise<string> {
-		const r = new RunSubcommand(cmd, "", "", {}, this.gptscriptBin, this.gptscriptURL)
-		if (this.gptscriptURL) {
-			r.request(null)
-		} else {
-			await r.exec(["--" + cmd])
+		if (!this.clientReady) {
+			this.clientReady = await this.testGPTScriptURL(20)
 		}
+		const r = new RunSubcommand(cmd, "", "", {}, this.gptscriptURL)
+		r.requestNoStream(null)
 		return r.text()
 	}
 
@@ -80,8 +86,11 @@ export class Client {
 	 * @param {RunOpts} [opts={}] - The options for running the tool.
 	 * @return {Run} The Run object representing the running tool.
 	 */
-	run(toolName: string, opts: RunOpts = {}): Run {
-		return (new Run("run", toolName, "", opts, this.gptscriptBin, this.gptscriptURL)).nextChat(opts.input)
+	async run(toolName: string, opts: RunOpts = {}): Promise<Run> {
+		if (!this.clientReady) {
+			this.clientReady = await this.testGPTScriptURL(20)
+		}
+		return (new Run("run", toolName, "", opts, this.gptscriptURL)).nextChat(opts.input)
 	}
 
 	/**
@@ -91,7 +100,10 @@ export class Client {
 	 * @param {RunOpts} [opts={}] - Optional options for the evaluation.
 	 * @return {Run} The Run object representing the evaluation.
 	 */
-	evaluate(tool: ToolDef | ToolDef[] | string, opts: RunOpts = {}): Run {
+	async evaluate(tool: ToolDef | ToolDef[] | string, opts: RunOpts = {}): Promise<Run> {
+		if (!this.clientReady) {
+			this.clientReady = await this.testGPTScriptURL(20)
+		}
 		let toolString: string = ""
 
 		if (Array.isArray(tool)) {
@@ -102,30 +114,31 @@ export class Client {
 			toolString = toolDefToString(tool)
 		}
 
-		return (new Run("evaluate", "", toolString, opts, this.gptscriptBin, this.gptscriptURL)).nextChat(opts.input)
+		return (new Run("evaluate", "", toolString, opts, this.gptscriptURL)).nextChat(opts.input)
 	}
 
 	async parse(fileName: string): Promise<Block[]> {
-		const r: Run = new RunSubcommand("parse", fileName, "", {}, this.gptscriptBin, this.gptscriptURL)
-		if (this.gptscriptURL) {
-			r.request({file: fileName})
-		} else {
-			await r.exec(["parse"])
+		if (!this.clientReady) {
+			this.clientReady = await this.testGPTScriptURL(20)
 		}
+		const r: Run = new RunSubcommand("parse", fileName, "", {}, this.gptscriptURL)
+		r.request({file: fileName})
 		return parseBlocksFromNodes((await r.json()).nodes)
 	}
 
 	async parseTool(toolContent: string): Promise<Block[]> {
-		const r: Run = new RunSubcommand("parse", "", toolContent, {}, this.gptscriptBin, this.gptscriptURL)
-		if (this.gptscriptURL) {
-			r.request({content: toolContent})
-		} else {
-			await r.exec(["parse"])
+		if (!this.clientReady) {
+			this.clientReady = await this.testGPTScriptURL(20)
 		}
+		const r: Run = new RunSubcommand("parse", "", toolContent, {}, this.gptscriptURL)
+		r.request({content: toolContent})
 		return parseBlocksFromNodes((await r.json()).nodes)
 	}
 
 	async stringify(blocks: Block[]): Promise<string> {
+		if (!this.clientReady) {
+			this.clientReady = await this.testGPTScriptURL(20)
+		}
 		const nodes: any[] = []
 
 		for (const block of blocks) {
@@ -144,14 +157,36 @@ export class Client {
 			}
 		}
 
-		const r: Run = new RunSubcommand("fmt", "", JSON.stringify({nodes: nodes}), {}, this.gptscriptBin, this.gptscriptURL)
-		if (this.gptscriptURL) {
-			r.request({nodes: nodes})
-		} else {
-			await r.exec(["fmt"])
-		}
-
+		const r: Run = new RunSubcommand("fmt", "", JSON.stringify({nodes: nodes}), {}, this.gptscriptURL)
+		r.request({nodes: nodes})
 		return r.text()
+	}
+
+	async confirm(response: AuthResponse): Promise<void> {
+		if (!this.clientReady) {
+			this.clientReady = await this.testGPTScriptURL(20)
+		}
+		const resp = await fetch(`${this.gptscriptURL}/confirm/${response.id}`, {
+			method: "POST",
+			body: JSON.stringify(response)
+		})
+
+		if (resp.status < 200 || resp.status >= 400) {
+			throw new Error(`Failed to confirm ${response.id}: ${await resp.text()}`)
+		}
+	}
+
+	private async testGPTScriptURL(count: number): Promise<boolean> {
+		try {
+			await fetch(`${this.gptscriptURL}/healthz`)
+			return true
+		} catch {
+			if (count === 0) {
+				throw new Error("Failed to wait for gptscript to be ready")
+			}
+			await new Promise(r => setTimeout(r, 500))
+			return this.testGPTScriptURL(count - 1)
+		}
 	}
 }
 
@@ -161,32 +196,26 @@ export class Run {
 	public readonly filePath: string
 	public readonly content: string
 	public state: RunState = RunState.Creating
-	public calls: Call[] = []
+	public calls: CallFrame[] = []
 	public err: string = ""
 
 	protected stdout?: string
 
-	private readonly bin?: string
 	private readonly gptscriptURL?: string
 	private readonly requestPath: string = ""
 	private promise?: Promise<string>
-	private process?: any
-	private sse?: SSE
-	private req?: any
+	private req?: http.ClientRequest
 	private stderr?: string
 	private callbacks: Record<string, ((f: Frame) => void)[]> = {}
 	private chatState?: string
 
-	constructor(subCommand: string, path: string, content: string, opts: RunOpts, bin?: string, gptscriptURL?: string) {
+	constructor(subCommand: string, path: string, content: string, opts: RunOpts, gptscriptURL?: string) {
 		this.id = randomId("run-")
 		this.requestPath = subCommand
 		this.opts = opts
 		this.filePath = path
 		this.content = content
 
-		if (bin) {
-			this.bin = bin
-		}
 		this.gptscriptURL = gptscriptURL
 	}
 
@@ -197,7 +226,7 @@ export class Run {
 
 		let run = this
 		if (run.state !== RunState.Creating) {
-			run = new (this.constructor as any)(this.requestPath, this.filePath, this.content, this.opts, this.bin, this.gptscriptURL)
+			run = new (this.constructor as any)(this.requestPath, this.filePath, this.content, this.opts, this.gptscriptURL)
 		}
 
 		if (this.chatState) {
@@ -206,142 +235,13 @@ export class Run {
 			run.chatState = this.opts.chatState
 		}
 		run.opts.input = input
-		if (run.gptscriptURL) {
-			if (run.content !== "") {
-				run.request({content: this.content, chatState: run.chatState})
-			} else {
-				run.request({file: this.filePath, chatState: run.chatState})
-			}
+		if (run.content !== "") {
+			run.request({content: this.content, chatState: run.chatState})
 		} else {
-			run.exec()
+			run.request({file: this.filePath, chatState: run.chatState})
 		}
 
 		return run
-	}
-
-	exec(extraArgs: string[] = [], env: NodeJS.Dict<string> = process.env) {
-		extraArgs.push(...toArgs(this.opts))
-		extraArgs.push("--chat-state=" + (this.chatState ? this.chatState : "null"))
-		this.chatState = undefined
-
-		if (this.filePath) {
-			extraArgs.push(this.filePath)
-		}
-		if (this.content) {
-			extraArgs.push("-")
-		}
-
-		if (this.opts.input) {
-			extraArgs.push(this.opts.input)
-		}
-
-		this.promise = new Promise(async (resolve, reject) => {
-			const net = await import("net")
-			const spawnOptions = {env, stdio: ["pipe", "pipe", "pipe"]}
-			const server = net.createServer((connection) => {
-				console.debug("Client connected")
-
-				connection.on("data", (data) => {
-					this.emitEvent(data.toString())
-				})
-
-				connection.on("end", () => {
-					server.close()
-				})
-			})
-
-
-			// On Windows, the child process doesn't know which file handles are available to it.
-			// Therefore, we have to use a named pipe. This is set up with a server.
-			if (process.platform === "win32") {
-				const namedPipe = "\\\\.\\pipe\\gptscript-" + Math.floor(Math.random() * 1000000)
-				server.listen(namedPipe, () => {
-					console.debug("Server is listening on", namedPipe)
-				})
-
-				// Add the named pipe for streaming events.
-				extraArgs.unshift("--events-stream-to=" + namedPipe)
-			} else {
-				// For non-Windows systems, we just add an extra stdio pipe and use that for streaming events.
-				spawnOptions.stdio.push("pipe")
-				extraArgs.unshift("--events-stream-to=fd://" + (spawnOptions.stdio.length - 1))
-			}
-
-
-			const child_process = await import("child_process")
-
-			this.process = child_process.spawn(this.bin || await getCmdPath(), extraArgs, spawnOptions as any)
-			if (process.platform !== "win32") {
-				// We don't need the named pipe for streaming events.
-				server.close()
-
-				// If the child process is not a Windows system, we can use the stdio pipe for streaming events.
-				if (this.process && this.process.stdio) {
-					const pipe = this.process.stdio[this.process.stdio.length - 1]
-					if (pipe) {
-						let frag = ""
-						pipe.on("data", (data: any) => {
-							frag = this.emitEvent(frag + data.toString())
-						})
-					} else {
-						console.error("Failed to get event stream")
-					}
-				}
-			}
-
-			if (!this.process) {
-				this.err = "Run failed to start"
-				this.state = RunState.Error
-				server.close()
-				this.promise = Promise.reject(this.err)
-				return
-			}
-
-			// Write to stdin if provided
-			if (this.process && this.process.stdin) {
-				this.process.stdin.setDefaultEncoding("utf-8")
-				if (this.content) {
-					this.process.stdin.write(this.content)
-				}
-				this.process.stdin.end()
-			}
-
-			this.state = RunState.Running
-
-			if (this.process.stdout) {
-				let frag = ""
-				this.process.stdout.on("data", (data: any) => {
-					frag = this.processStdout(frag + data.toString())
-				})
-			}
-
-			if (this.process.stderr) {
-				this.process.stderr.on("data", (data: any) => {
-					this.stderr = (this.stderr || "") + data
-				})
-			}
-
-			this.process!.on("exit", (code: number | null, signal: NodeJS.Signals | null) => {
-				server.close()
-
-				if (signal) {
-					this.err = "Run has been aborted"
-					this.state = RunState.Error
-				} else if (code !== 0) {
-					this.err = this.stderr || ""
-					this.state = RunState.Error
-				} else if (this.state !== RunState.Continue) {
-					this.state = RunState.Finished
-				}
-
-				if (this.err) {
-					this.state = RunState.Error
-					reject(this.err)
-				} else {
-					resolve(this.stdout || "")
-				}
-			})
-		})
 	}
 
 	processStdout(data: string | object): string {
@@ -373,41 +273,44 @@ export class Run {
 		if (!this.gptscriptURL) {
 			throw new Error("request() requires gptscriptURL to be set")
 		}
-		const postData = JSON.stringify({...tool, ...this.opts})
-		const options = this.requestOptions(this.gptscriptURL, this.requestPath, postData, tool)
+		const options = this.requestOptions(this.gptscriptURL, this.requestPath, tool)
+		options.headers = {"Transfer-Encoding": "chunked", ...options.headers} as any
 
 		this.promise = new Promise<string>(async (resolve, reject) => {
-			// This checks that the code is running in a browser. If it is, then we use SSE.
-			if (typeof window !== "undefined" && typeof window.document !== "undefined") {
-				// @ts-ignore
-				const {SSE} = await import("sse.js")
-				this.sse = new SSE(this.gptscriptURL + "/" + this.requestPath, {
-					headers: {"Content-Type": "application/json"},
-					payload: tool ? postData : undefined,
-					method: tool ? "POST" : "GET"
-				} as any)
+			let frag = ""
+			this.req = http.request(options, (res: http.IncomingMessage) => {
+				this.state = RunState.Running
+				res.on("data", (chunk: any) => {
+					for (let line of (frag + chunk.toString()).split("\n")) {
+						const c = line.replace(/^(data: )/, "").trim()
+						if (!c) {
+							continue
+						}
 
-				this.sse.addEventListener("open", () => {
-					this.state = RunState.Running
+						if (c === "[DONE]") {
+							return
+						}
+
+						let e: any
+						try {
+							e = JSON.parse(c)
+						} catch {
+							frag = c
+							return
+						}
+
+						if (e.stderr) {
+							this.stderr = (this.stderr || "") + (typeof e.stderr === "string" ? e.stderr : JSON.stringify(e.stderr))
+							frag = ""
+						} else if (e.stdout) {
+							frag = this.processStdout(e.stdout)
+						} else {
+							frag = this.emitEvent(c)
+						}
+					}
 				})
 
-				this.sse.addEventListener("message", (data: any) => {
-					if (data.data === "[DONE]") {
-						this.sse!.close()
-						return
-					}
-
-					const e = JSON.parse(data.data)
-					if (e.stderr) {
-						this.stderr = (this.stderr || "") + (typeof e.stderr === "string" ? e.stderr : JSON.stringify(e.stderr))
-					} else if (e.stdout) {
-						this.stdout = (this.stdout || "") + (typeof e.stdout === "string" ? e.stdout : JSON.stringify(e.stdout))
-					} else {
-						this.emitEvent(data.data)
-					}
-				})
-
-				this.sse.addEventListener("close", () => {
+				res.on("end", () => {
 					if (this.state === RunState.Running || this.state === RunState.Finished || this.state === RunState.Continue) {
 						if (this.stdout) {
 							if (this.state !== RunState.Continue) {
@@ -423,93 +326,51 @@ export class Run {
 					}
 				})
 
-				this.sse.addEventListener("error", (err: any) => {
-					this.state = RunState.Error
-					this.err = err
-					reject(err)
-				})
-			} else {
-				// If not in the browser, then we use HTTP.
-				const http = await import("http")
-
-				// Use frag to keep track of partial object writes.
-				let frag = ""
-				this.req = http.request(options, (res: any) => {
-					this.state = RunState.Running
-					res.on("data", (chunk: any) => {
-						for (let line of (chunk.toString() + frag).split("\n")) {
-							const c = line.replace(/^(data: )/, "").trim()
-							if (!c) {
-								continue
-							}
-
-							if (c === "[DONE]") {
-								return
-							}
-
-							let e: any
-							try {
-								e = JSON.parse(c)
-							} catch {
-								frag = c
-								return
-							}
-							frag = ""
-
-							if (e.stderr) {
-								this.stderr = (this.stderr || "") + (typeof e.stderr === "string" ? e.stderr : JSON.stringify(e.stderr))
-							} else if (e.stdout) {
-								frag = this.processStdout(e.stdout)
-							} else {
-								frag = this.emitEvent(c)
-							}
-						}
-					})
-
-					res.on("end", () => {
-						if (this.state === RunState.Running || this.state === RunState.Finished || this.state === RunState.Continue) {
-							if (this.stdout) {
-								if (this.state !== RunState.Continue) {
-									this.state = RunState.Finished
-								}
-								resolve(this.stdout)
-							} else {
-								this.state = RunState.Error
-								reject(this.stderr)
-							}
-						} else if (this.state === RunState.Error) {
-							reject(this.err)
-						}
-					})
-
-					res.on("aborted", () => {
-						if (this.state !== RunState.Finished) {
-							this.state = RunState.Error
-							this.err = "Run has been aborted"
-							reject(this.err)
-						}
-					})
-
-					res.on("error", (error: Error) => {
+				res.on("aborted", () => {
+					if (this.state !== RunState.Finished) {
 						this.state = RunState.Error
-						this.err = error.message || ""
+						this.err = "Run has been aborted"
 						reject(this.err)
-					})
+					}
 				})
 
-				this.req.on("error", (error: Error) => {
+				res.on("error", (error: Error) => {
 					this.state = RunState.Error
 					this.err = error.message || ""
 					reject(this.err)
 				})
+			})
 
-				this.req.write(postData)
-				this.req.end()
-			}
+			this.req.on("error", (error: Error) => {
+				this.state = RunState.Error
+				this.err = error.message || ""
+				reject(this.err)
+			})
+
+			this.req.write(JSON.stringify({...tool, ...this.opts}))
+			this.req.end()
 		})
 	}
 
-	requestOptions(gptscriptURL: string, path: string, postData: string, tool: any) {
+	requestNoStream(tool: any) {
+		if (!this.gptscriptURL) {
+			throw new Error("request() requires gptscriptURL to be set")
+		}
+
+		const options = this.requestOptions(this.gptscriptURL, this.requestPath, tool) as any
+		if (tool) {
+			options.body = {...tool, ...this.opts}
+		}
+		const req = new Request(this.gptscriptURL + "/" + this.requestPath, options)
+
+		this.promise = new Promise<string>(async (resolve, reject) => {
+			fetch(req).then(resp => resp.json()).then(res => resolve(res.stdout)).catch(e => {
+				reject(e)
+			})
+		})
+	}
+
+	requestOptions(gptscriptURL: string, path: string, tool: any) {
 		let method = "GET"
 		if (tool) {
 			method = "POST"
@@ -524,8 +385,7 @@ export class Run {
 			path: "/" + path,
 			method: method,
 			headers: {
-				"Content-Type": "application/json",
-				"Content-Length": postData.length
+				"Content-Type": "application/json"
 			},
 		}
 	}
@@ -539,7 +399,14 @@ export class Run {
 			}
 			let f: Frame
 			try {
-				f = JSON.parse(event) as Frame
+				const obj = JSON.parse(event)
+				if (obj.run) {
+					f = obj.run as Frame
+				} else if (obj.call) {
+					f = obj.call as Frame
+				} else {
+					return event
+				}
 			} catch (error) {
 				return event
 			}
@@ -551,54 +418,22 @@ export class Run {
 			if (f.type === RunEventType.RunStart) {
 				this.state = RunState.Running
 			} else if (f.type === RunEventType.RunFinish) {
-				if (f.err) {
+				if (f.error) {
 					this.state = RunState.Error
-					this.err = f.err || ""
+					this.err = f.error || ""
 				} else {
 					this.state = RunState.Finished
 					this.stdout = f.output || ""
 				}
-			} else if ((f.type as string).startsWith("call")) {
-				let call = this.calls?.find((x) => x.id === f.callContext.id)
+			} else {
+				if (!(f.type as string).startsWith("call")) continue
+				f = (f as CallFrame)
+				const idx = this.calls?.findIndex((x) => x.id === f.id)
 
-				if (!call) {
-					call = {
-						id: f.callContext.id,
-						parentID: f.callContext.parentID,
-						tool: f.callContext.tool,
-						messages: [],
-						state: RunState.Running,
-						chatCompletionId: f.callContext.chatCompletionId,
-						chatRequest: f.callContext.chatRequest,
-					}
-
-					this.calls?.push(call)
-				}
-
-				if (f.type === RunEventType.CallStart) {
-					call.state = RunState.Creating
-					call.input = f.content || ""
-				} else if (f.type === RunEventType.CallChat) {
-					call.state = RunState.Running
-
-					if (f.chatRequest) {
-						const more = (f.chatRequest.messages || []).slice(call.messages.length)
-
-						call.messages.push(...more)
-					}
-
-					if (f.chatResponse) {
-						call.messages.push(f.chatResponse)
-					}
-				} else if (f.type === RunEventType.CallContinue) {
-					call.state = RunState.Running
-				} else if (f.type === RunEventType.CallProgress) {
-					call.state = RunState.Running
-
-					call.output = f.content
-				} else if (f.type === RunEventType.CallFinish) {
-					call.state = RunState.Finished
-					call.output = f.content
+				if (idx === -1) {
+					this.calls.push(f)
+				} else {
+					this.calls[idx] = f
 				}
 			}
 
@@ -609,13 +444,8 @@ export class Run {
 		return ""
 	}
 
-	public on(event: RunEventType.RunStart, listener: (data: RunStartFrame) => void): this;
-	public on(event: RunEventType.RunFinish, listener: (data: RunFinishFrame) => void): this;
-	public on(event: RunEventType.CallStart, listener: (data: CallStartFrame) => void): this;
-	public on(event: RunEventType.CallChat, listener: (data: CallChatFrame) => void): this;
-	public on(event: RunEventType.CallContinue, listener: (data: CallContinueFrame) => void): this;
-	public on(event: RunEventType.CallProgress, listener: (data: CallProgressFrame) => void): this;
-	public on(event: RunEventType.CallFinish, listener: (data: CallFinishFrame) => void): this;
+	public on(event: RunEventType.RunStart | RunEventType.RunFinish, listener: (data: RunFrame) => void): this;
+	public on(event: RunEventType.CallStart | RunEventType.CallProgress | RunEventType.CallContinue | RunEventType.CallChat | RunEventType.CallConfirm | RunEventType.CallFinish, listener: (data: CallFrame) => void): this;
 	public on(event: RunEventType.Event, listener: (data: Frame) => void): this;
 	public on(event: RunEventType, listener: (data: any) => void): this {
 		if (!this.callbacks[event]) {
@@ -648,23 +478,10 @@ export class Run {
 	}
 
 	public close(): void {
-		if (this.process) {
-			if (this.process.exitCode === null) {
-				this.process.kill("SIGKILL")
-			}
-			return
-		}
-
 		if (this.req) {
 			this.req.destroy()
 			return
 		}
-
-		if (this.sse) {
-			this.sse.close()
-			return
-		}
-
 		throw new Error("Run not started")
 	}
 
@@ -676,8 +493,8 @@ export class Run {
 }
 
 class RunSubcommand extends Run {
-	constructor(subCommand: string, path: string, content: string, opts: RunOpts, bin?: string, gptscriptURL?: string) {
-		super(subCommand, path, content, opts, bin, gptscriptURL)
+	constructor(subCommand: string, path: string, content: string, opts: RunOpts, gptscriptURL?: string) {
+		super(subCommand, path, content, opts, gptscriptURL)
 	}
 
 	processStdout(data: string | object): string {
@@ -709,6 +526,7 @@ export interface ArgumentSchema {
 export interface Program {
 	name: string
 	blocks: Block[]
+	openAPICache: Record<string, any>
 }
 
 export interface Property {
@@ -745,16 +563,24 @@ export interface ToolDef {
 	instructions: string
 }
 
+export interface ToolReference {
+	named: string
+	reference: string
+	arg: string
+	toolID: string
+}
+
 export interface Tool extends ToolDef {
 	id: string
 	type: "tool"
-	toolMapping: Record<string, string>
+	toolMapping: Record<string, ToolReference[]>
 	localTools: Record<string, string>
 	source: SourceRef
 	workingDir: string
 }
 
 export interface SourceRef {
+	location: string
 	lineNo: number
 	repo?: Repo
 }
@@ -776,154 +602,72 @@ export enum RunState {
 	Error = "error"
 }
 
-export interface Call {
+export interface RunFrame {
 	id: string
-	parentID?: string
-	chatCompletionId?: string
-	state: RunState
-	messages: ChatMessage[]
-	tool?: Tool
-	chatRequest?: Record<string, any>
-	input?: Arguments
-	output?: string
-	showSystemMessages?: boolean
-}
-
-interface BaseFrame {
-	type: RunEventType
-	time: string
-	runID: string
-}
-
-interface CallFrame extends BaseFrame {
-	callContext: Call
-	input: Arguments
-}
-
-export interface RunStartFrame extends BaseFrame {
-	type: RunEventType.RunStart
+	type: RunEventType.RunStart | RunEventType.RunFinish
 	program: Program
-}
-
-export interface RunFinishFrame extends BaseFrame {
-	type: RunEventType.RunFinish
-	input: Arguments
-
-	err?: string
-	output?: string
-}
-
-export interface CallStartFrame extends CallFrame {
-	type: RunEventType.CallStart
-	content: string
-}
-
-export interface CallChatFrame extends CallFrame {
-	type: RunEventType.CallChat
-	chatCompletionId: string
-	chatRequest?: ChatRequest
-	chatResponse?: ChatMessage
-	chatResponseCached?: boolean
-}
-
-export interface CallProgressFrame extends CallFrame {
-	type: RunEventType.CallProgress
-	chatCompletionId: string
-	content: string
-}
-
-export interface CallContinueFrame extends CallFrame {
-	type: RunEventType.CallContinue
-	toolResults: number
-}
-
-export interface CallFinishFrame extends CallFrame {
-	type: RunEventType.CallFinish
-	content: string
-}
-
-export type Frame =
-	RunStartFrame
-	| RunFinishFrame
-	| CallStartFrame
-	| CallChatFrame
-	| CallProgressFrame
-	| CallContinueFrame
-	| CallFinishFrame
-
-export interface ChatRequest {
-	max_tokens: number
-	messages: ChatMessage[]
-	model: string
-	temperature: string
-	tools?: ChatTool[]
-}
-
-export interface ChatText {
-	text: string
-}
-
-export interface ChatToolCall {
-	toolCall: {
-		id: string
-		index: number
-		type: "function"
-		function: {
-			name: string
-			arguments: string
-		}
-	}
-}
-
-enum ChatMessageRole {
-	System = "system",
-	Assistant = "assistant",
-	User = "user",
-	Tool = "tool"
-}
-
-export interface ChatToolMessage {
-	role: ChatMessageRole
-	content: string | (ChatToolCall | ChatText)[]
-}
-
-export interface ChatErrorMessage {
-	err: string
-}
-
-export interface ChatOutputMessage {
+	input: string
 	output: string
+	error: string
+	start: string
+	end: string
+	state: RunState
+	chatState: any
 }
 
-export type ChatMessage = ChatToolMessage | ChatOutputMessage | ChatErrorMessage
-
-export interface ChatToolFunction {
-	type: "function"
-	function: {
-		name: string
-		description: string
-		parameters: {
-			type: "object"
-			properties: Record<string, ChatProperty>
-		}
-	}
+export interface Call {
+	toolID: string
+	input?: string
 }
 
-export type ChatTool = ChatToolFunction
-
-export interface ChatProperty {
-	type: string
-	description: string
+export interface Output {
+	content?: string
+	subCalls: Record<string, Call>
 }
 
-async function getCmdPath(): Promise<string> {
+export interface InputContext {
+	toolID: string
+	content: string
+}
+
+export interface Usage {
+	promptTokens: number
+	completionTokens: number
+	totalTokens: number
+}
+
+export interface CallFrame {
+	id: string
+	tool?: Tool
+	inputContext: InputContext[]
+	toolCategory?: string
+	toolName: string
+	parentID?: string
+	type: RunEventType.CallStart | RunEventType.CallChat | RunEventType.CallConfirm | RunEventType.CallContinue | RunEventType.CallSubCalls | RunEventType.CallProgress | RunEventType.CallFinish
+	start: string
+	end: string
+	input: Arguments
+	output: Output[]
+	error?: string
+	usage: Usage
+	llmRequest?: any
+	llmResponse?: any
+}
+
+export type Frame = RunFrame | CallFrame
+
+export interface AuthResponse {
+	id: string
+	accept: boolean
+	message?: string
+}
+
+function getCmdPath(): string {
 	if (process.env.GPTSCRIPT_BIN) {
 		return process.env.GPTSCRIPT_BIN
 	}
 
-	const path = await import("path")
-	const url = await import("url")
-	return path.join(path.dirname(url.fileURLToPath(import.meta.url)), "..", "..", "bin", "gptscript")
+	return path.resolve("..", "..", "bin", "gptscript")
 }
 
 function parseBlocksFromNodes(nodes: any[]): Block[] {

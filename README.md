@@ -18,8 +18,8 @@ running `npm install`.
 
 ## Usage
 
-To use the module and run gptscripts, you need to first set the OPENAI_API_KEY environment variable to your OpenAI API
-key.
+To use the module and run gptscripts, you need to first set the `OPENAI_API_KEY` environment variable to your OpenAI API
+key. You can also set the `GPTSCRIPT_BIN` environment variable to change the execution of the gptscripts.
 
 To ensure it is working properly, you can run the following command:
 
@@ -31,23 +31,24 @@ You will see "Hello, World!" in the output of the command.
 
 ## Client
 
-There are currently a couple "global" options, and the client helps to manage those. A client without any options is
-likely what you want. However, here are the current global options:
-
-- `gptscriptURL`: The URL (including `http(s)://) of an "SDK server" to use instead of the fork/exec model.
-- `gptscriptBin`: The path to a `gptscript` binary to use instead of the bundled one.
+The client allows the caller to run gptscript files, tools, and other operations (see below). There are currently no
+options for this singleton client, so `new gptscript.Client()` is all you need. Although, the intention is that a
+single client is all you need for the life of your application, you should call `close()` on the client when you are
+done.
 
 ## Options
 
 These are optional options that can be passed to the various `exec` functions.
 None of the options is required, and the defaults will reduce the number of calls made to the Model API.
 
-- `disableCache`: Enable or disable caching, default (true)
-- `cacheDir`: Specify the cache directory
+- `cache`: Enable or disable caching. Default (true).
+- `cacheDir`: Specify the cache directory.
 - `quiet`: No output logging
-- `chdir`: Change current working directory
 - `subTool`: Use tool of this name, not the first tool
+- `input`: Input arguments for the tool run
 - `workspace`: Directory to use for the workspace, if specified it will not be deleted on exit
+- `chatState`: The chat state to continue, or null to start a new chat and return the state
+- `confirm`: Prompt before running potentially dangerous commands
 
 ## Functions
 
@@ -64,6 +65,7 @@ async function listTools() {
     const client = new gptscript.Client();
     const tools = await client.listTools();
     console.log(tools);
+    client.close()
 }
 ```
 
@@ -78,12 +80,13 @@ const gptscript = require('@gptscript-ai/gptscript');
 
 async function listModels() {
     let models = [];
+    const client = new gptscript.Client();
     try {
-        const client = new gptscript.Client();
         models = await client.listModels();
     } catch (error) {
         console.error(error);
     }
+    client.close()
 }
 ```
 
@@ -97,12 +100,13 @@ Get the first of the current `gptscript` binary being used for the calls.
 const gptscript = require('@gptscript-ai/gptscript');
 
 async function version() {
+    const client = new gptscript.Client();
     try {
-        const client = new gptscript.Client();
         console.log(await client.version());
     } catch (error) {
         console.error(error);
     }
+    client.close()
 }
 ```
 
@@ -118,13 +122,14 @@ const t = {
     instructions: "Who was the president of the united states in 1928?"
 };
 
+const client = new gptscript.Client();
 try {
-    const client = new gptscript.Client();
-    const run = client.evaluate(t);
+    const run = await client.evaluate(t);
     console.log(await run.text());
 } catch (error) {
     console.error(error);
 }
+client.close();
 ```
 
 ### run
@@ -140,13 +145,14 @@ const opts = {
 };
 
 async function execFile() {
+    const client = new gptscript.Client();
     try {
-        const client = new gptscript.Client();
-        const run = client.run('./hello.gpt', opts);
+        const run = await client.run('./hello.gpt', opts);
         console.log(await run.text());
     } catch (e) {
         console.error(e);
     }
+    client.close();
 }
 ```
 
@@ -155,17 +161,6 @@ async function execFile() {
 The `Run` object exposes event handlers so callers can access the progress events as the script is running.
 
 The `Run` object exposes these events with their corresponding event type:
-
-| Event type                | Event object      |
-|---------------------------|-------------------|
-| RunEventType.RunStart     | RunStartFrame     |
-| RunEventType.RunFinish    | RunFinishFrame    |
-| RunEventType.CallStart    | CallStartFrame    |   
-| RunEventType.CallChat     | CallChatFrame     |    
-| RunEventType.CallContinue | CallContinueFrame |
-| RunEventType.CallProgress | CallProgressFrame | 
-| RunEventType.CallFinish   | CallFinishFrame   |   
-| RunEventType.Event        | Frame             |             
 
 Subscribing to `RunEventType.Event` gets you all events.
 
@@ -178,9 +173,9 @@ const opts = {
 };
 
 async function streamExecFileWithEvents() {
+    const client = new gptscript.Client();
     try {
-        const client = new gptscript.Client();
-        const run = client.run('./test.gpt', opts);
+        const run = await client.run('./test.gpt', opts);
 
         run.on(gptscript.RunEventType.Event, data => {
             console.log(`event: ${JSON.stringify(data)}`);
@@ -190,6 +185,45 @@ async function streamExecFileWithEvents() {
     } catch (e) {
         console.error(e);
     }
+    client.close();
+}
+```
+
+### Confirm
+
+If a gptscript can run commands, you may want to inspect and confirm/deny the command before they are run. This can be
+done with the `confirm` method. A user should listen for the `RunEventType.CallConfirm` event.
+
+```javascript
+const gptscript = require('@gptscript-ai/gptscript');
+
+const opts = {
+    disableCache: true,
+    input: "--testin how high is that there mouse?",
+    confirm: true
+};
+
+async function streamExecFileWithEvents() {
+    const client = new gptscript.Client();
+    try {
+        const run = await client.run('./test.gpt', opts);
+
+        run.on(gptscript.RunEventType.CallConfirm, async (data: gptscript.CallFrame) => {
+            // data.Tool has the information for the command being run.
+            // data.Input has the input for this command
+
+            await client.confirm({
+                id: data.id,
+                accept: true, // false if the command should not be run
+                message: "", // Explain the denial (ignored if accept is true)
+            })
+        });
+
+        await run.text();
+    } catch (e) {
+        console.error(e);
+    }
+    client.close();
 }
 ```
 
@@ -219,7 +253,7 @@ const t = {
 
 async function streamExecFileWithEvents() {
     const client = new gptscript.Client();
-    let run = client.evaluate(t, opts);
+    let run = await client.evaluate(t, opts);
     try {
         // Wait for the initial run to complete.
         await run.text();
@@ -238,6 +272,7 @@ async function streamExecFileWithEvents() {
         console.error(e);
     }
 
+    client.close();
 
     // The state here should either be RunState.Finished (on success) or RunState.Error (on error).
     console.log(run.state)
