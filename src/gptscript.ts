@@ -667,7 +667,7 @@ function getCmdPath(): string {
 		return process.env.GPTSCRIPT_BIN
 	}
 
-	return path.resolve("..", "..", "bin", "gptscript")
+	return path.resolve("..", "bin", "gptscript")
 }
 
 function parseBlocksFromNodes(nodes: any[]): Block[] {
