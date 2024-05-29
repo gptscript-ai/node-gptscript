@@ -1,6 +1,7 @@
 import http from "http"
 import path from "path"
 import child_process from "child_process"
+import {fileURLToPath} from "url"
 
 export interface RunOpts {
 	input?: string
@@ -667,7 +668,7 @@ function getCmdPath(): string {
 		return process.env.GPTSCRIPT_BIN
 	}
 
-	return path.resolve("..", "bin", "gptscript")
+	return path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "bin", "gptscript")
 }
 
 function parseBlocksFromNodes(nodes: any[]): Block[] {
