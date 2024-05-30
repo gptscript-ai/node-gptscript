@@ -640,6 +640,7 @@ export interface Usage {
 export interface CallFrame {
 	id: string
 	tool?: Tool
+	displayText?: string
 	inputContext: InputContext[]
 	toolCategory?: string
 	toolName: string
