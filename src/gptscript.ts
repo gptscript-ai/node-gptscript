@@ -668,7 +668,7 @@ function getCmdPath(): string {
 		return process.env.GPTSCRIPT_BIN
 	}
 
-	return path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "bin", "gptscript")
+	return path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "bin", "gptscript")
 }
 
 function parseBlocksFromNodes(nodes: any[]): Block[] {

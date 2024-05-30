@@ -85,7 +85,7 @@ const suffix = {
 
 const url = `${gptscript_info.url}${gptscript_info.version}/gptscript-${gptscript_info.version}-${pltfm}-${arch}.${suffix}`;
 
-const outputDir = path.resolve('..', 'bin');
+const outputDir = path.resolve('bin');
 
 const fileExist = (path) => {
     try {

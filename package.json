@@ -53,6 +53,7 @@
     "url": "^0.11.3"
   },
   "jest": {
+    "preset": "ts-jest/presets/default-esm",
     "transform": {
       "^.+\\.ts?$": [
         "ts-jest",

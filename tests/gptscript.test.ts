@@ -1,7 +1,9 @@
 import * as gptscript from "../src/gptscript"
 import path from "path"
+import {fileURLToPath} from "url"
 
 let client: gptscript.Client
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 describe("gptscript module", () => {
 	beforeAll(async () => {
