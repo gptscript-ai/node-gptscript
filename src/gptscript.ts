@@ -12,6 +12,7 @@ export interface RunOpts {
 	workspace?: string
 	chatState?: string
 	confirm?: boolean
+	prompt?: boolean
 }
 
 export enum RunEventType {
@@ -344,7 +345,7 @@ export class Run {
 				})
 
 				res.on("aborted", () => {
-					if (this.state !== RunState.Finished) {
+					if (this.state !== RunState.Finished && this.state !== RunState.Error) {
 						this.state = RunState.Error
 						this.err = "Run has been aborted"
 						reject(this.err)
@@ -352,15 +353,19 @@ export class Run {
 				})
 
 				res.on("error", (error: Error) => {
-					this.state = RunState.Error
-					this.err = error.message || ""
+					if (this.state !== RunState.Error) {
+						this.state = RunState.Error
+						this.err = error.message || ""
+					}
 					reject(this.err)
 				})
 			})
 
 			this.req.on("error", (error: Error) => {
-				this.state = RunState.Error
-				this.err = error.message || ""
+				if (this.state !== RunState.Error) {
+					this.state = RunState.Error
+					this.err = error.message || ""
+				}
 				reject(this.err)
 			})
 
@@ -432,6 +437,13 @@ export class Run {
 
 			if (!this.state) {
 				this.state = RunState.Creating
+			}
+
+			if (f.type === RunEventType.Prompt && !this.opts.prompt) {
+				this.state = RunState.Error
+				this.err = `prompt occurred when prompt was not allowed: Message: ${f.message}\nFields: ${f.fields}\nSensitive: ${f.sensitive}`
+				this.close()
+				return ""
 			}
 
 			if (f.type === RunEventType.RunStart) {
