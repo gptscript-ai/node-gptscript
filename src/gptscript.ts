@@ -25,6 +25,8 @@ export enum RunEventType {
 	CallConfirm = "callConfirm",
 	CallContinue = "callContinue",
 	CallFinish = "callFinish",
+
+	Prompt = "prompt"
 }
 
 let serverProcess: child_process.ChildProcess
@@ -174,6 +176,20 @@ export class Client {
 
 		if (resp.status < 200 || resp.status >= 400) {
 			throw new Error(`Failed to confirm ${response.id}: ${await resp.text()}`)
+		}
+	}
+
+	async promptResponse(response: PromptResponse): Promise<void> {
+		if (!this.clientReady) {
+			this.clientReady = await this.testGPTScriptURL(20)
+		}
+		const resp = await fetch(`${this.gptscriptURL}/prompt-response/${response.id}`, {
+			method: "POST",
+			body: JSON.stringify(response.responses)
+		})
+
+		if (resp.status < 200 || resp.status >= 400) {
+			throw new Error(`Failed to respond to prompt ${response.id}: ${await resp.text()}`)
 		}
 	}
 
@@ -405,6 +421,8 @@ export class Run {
 					f = obj.run as Frame
 				} else if (obj.call) {
 					f = obj.call as Frame
+				} else if (obj.prompt) {
+					f = obj.prompt as Frame
 				} else {
 					return event
 				}
@@ -426,8 +444,7 @@ export class Run {
 					this.state = RunState.Finished
 					this.stdout = f.output || ""
 				}
-			} else {
-				if (!(f.type as string).startsWith("call")) continue
+			} else if ((f.type as string).startsWith("call")) {
 				f = (f as CallFrame)
 				const idx = this.calls?.findIndex((x) => x.id === f.id)
 
@@ -447,6 +464,7 @@ export class Run {
 
 	public on(event: RunEventType.RunStart | RunEventType.RunFinish, listener: (data: RunFrame) => void): this;
 	public on(event: RunEventType.CallStart | RunEventType.CallProgress | RunEventType.CallContinue | RunEventType.CallChat | RunEventType.CallConfirm | RunEventType.CallFinish, listener: (data: CallFrame) => void): this;
+	public on(event: RunEventType.Prompt, listener: (data: PromptFrame) => void): this;
 	public on(event: RunEventType.Event, listener: (data: Frame) => void): this;
 	public on(event: RunEventType, listener: (data: any) => void): this {
 		if (!this.callbacks[event]) {
@@ -656,12 +674,26 @@ export interface CallFrame {
 	llmResponse?: any
 }
 
-export type Frame = RunFrame | CallFrame
+export interface PromptFrame {
+	id: string
+	type: RunEventType.Prompt
+	time: string
+	message: string
+	fields: string[]
+	sensitive: boolean
+}
+
+export type Frame = RunFrame | CallFrame | PromptFrame
 
 export interface AuthResponse {
 	id: string
 	accept: boolean
 	message?: string
+}
+
+export interface PromptResponse {
+	id: string
+	responses: Record<string, string>
 }
 
 function getCmdPath(): string {

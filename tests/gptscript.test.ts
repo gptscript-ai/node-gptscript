@@ -428,4 +428,26 @@ describe("gptscript module", () => {
 		expect(run.err).toEqual("")
 		expect(confirmFound).toBeTruthy()
 	})
+
+	test("prompt", async () => {
+		let promptFound = false
+		const t = {
+			instructions: "Use the sys.prompt user to ask the user for 'first name' which is not sensitive. After you get their first name, say hello.",
+			tools: ["sys.prompt"]
+		}
+		const run = await client.evaluate(t as any)
+		run.on(gptscript.RunEventType.Prompt, async (data: gptscript.PromptFrame) => {
+			expect(data.message).toContain("first name")
+			expect(data.fields.length).toEqual(1)
+			expect(data.fields[0]).toEqual("first name")
+			expect(data.sensitive).toBeFalsy()
+
+			promptFound = true
+			await client.promptResponse({id: data.id, responses: {[data.fields[0]]: "Clicky"}})
+		})
+
+		expect(await run.text()).toContain("Clicky")
+		expect(run.err).toEqual("")
+		expect(promptFound).toBeTruthy()
+	})
 })
