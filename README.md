@@ -49,6 +49,7 @@ None of the options is required, and the defaults will reduce the number of call
 - `workspace`: Directory to use for the workspace, if specified it will not be deleted on exit
 - `chatState`: The chat state to continue, or null to start a new chat and return the state
 - `confirm`: Prompt before running potentially dangerous commands
+- `prompt`: Allow scripts to prompt the user for input
 
 ## Functions
 
@@ -216,6 +217,44 @@ async function streamExecFileWithEvents() {
                 id: data.id,
                 accept: true, // false if the command should not be run
                 message: "", // Explain the denial (ignored if accept is true)
+            })
+        });
+
+        await run.text();
+    } catch (e) {
+        console.error(e);
+    }
+    client.close();
+}
+```
+
+### Prompt
+
+A gptscript may need to prompt the user for information like credentials. A user should listen for
+the `RunEventType.Prompt`. Note that if `prompt: true` is not set in the options, then an error will occur if a
+gptscript attempts to prompt the user.
+
+```javascript
+const gptscript = require('@gptscript-ai/gptscript');
+
+const opts = {
+    disableCache: true,
+    input: "--testin how high is that there mouse?",
+    confirm: true
+};
+
+async function streamExecFileWithEvents() {
+    const client = new gptscript.Client();
+    try {
+        const run = await client.run('./test.gpt', opts);
+
+        run.on(gptscript.RunEventType.Prompt, async (data: gptscript.PromptFrame) => {
+            // data will have the information for what the gptscript is prompting.
+
+            await client.promptResponse({
+                id: data.id,
+                // response is a map of fields to values
+                responses: {[data.fields[0]]: "Some Value"}
             })
         });
 
