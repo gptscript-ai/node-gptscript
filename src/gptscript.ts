@@ -214,7 +214,7 @@ export class Run {
 	public readonly filePath: string
 	public readonly content: string
 	public state: RunState = RunState.Creating
-	public calls: CallFrame[] = []
+	public calls: Record<string, CallFrame> = {}
 	public err: string = ""
 
 	protected stdout?: string
@@ -226,6 +226,10 @@ export class Run {
 	private stderr?: string
 	private callbacks: Record<string, ((f: Frame) => void)[]> = {}
 	private chatState?: string
+	private callIdsByParentIds: Record<string, string[]> = {}
+	private parentCallId: string = ""
+	private prg?: Program
+	private respondingToolId?: string
 
 	constructor(subCommand: string, path: string, content: string, opts: RunOpts, gptscriptURL?: string) {
 		this.id = randomId("run-")
@@ -279,6 +283,7 @@ export class Run {
 		if (out.done === undefined || !out.done) {
 			this.chatState = JSON.stringify(out.state)
 			this.state = RunState.Continue
+			this.respondingToolId = out.toolId
 		} else {
 			this.state = RunState.Finished
 			this.chatState = undefined
@@ -412,7 +417,61 @@ export class Run {
 		}
 	}
 
-	emitEvent(data: string): string {
+	public on(event: RunEventType.RunStart | RunEventType.RunFinish, listener: (data: RunFrame) => void): this;
+	public on(event: RunEventType.CallStart | RunEventType.CallProgress | RunEventType.CallContinue | RunEventType.CallChat | RunEventType.CallConfirm | RunEventType.CallFinish, listener: (data: CallFrame) => void): this;
+	public on(event: RunEventType.Prompt, listener: (data: PromptFrame) => void): this;
+	public on(event: RunEventType.Event, listener: (data: Frame) => void): this;
+	public on(event: RunEventType, listener: (data: any) => void): this {
+		if (!this.callbacks[event]) {
+			this.callbacks[event] = []
+		}
+
+		this.callbacks[event].push(listener)
+
+		return this
+	}
+
+	public text(): Promise<string> {
+		if (this.err) {
+			throw new Error(this.err)
+		}
+
+		if (!this.promise) {
+			throw new Error("Run not started")
+		}
+
+		return this.promise
+	}
+
+	public async json(): Promise<any> {
+		return JSON.parse(await this.text())
+	}
+
+	public currentChatState(): string | undefined {
+		return this.chatState
+	}
+
+	public firstCallId(): string {
+		return this.parentCallId
+	}
+
+	public program(): Program | undefined {
+		return this.prg
+	}
+
+	public respondingTool(): Tool | undefined {
+		return this.respondingToolId ? this.prg?.toolSet[this.respondingToolId] : undefined
+	}
+
+	public close(): void {
+		if (this.req) {
+			this.req.destroy()
+			return
+		}
+		throw new Error("Run not started")
+	}
+
+	private emitEvent(data: string): string {
 		for (let event of data.split("\n")) {
 			event = event.trim()
 
@@ -448,6 +507,7 @@ export class Run {
 
 			if (f.type === RunEventType.RunStart) {
 				this.state = RunState.Running
+				this.prg = f.program
 			} else if (f.type === RunEventType.RunFinish) {
 				if (f.error) {
 					this.state = RunState.Error
@@ -457,14 +517,11 @@ export class Run {
 					this.stdout = f.output || ""
 				}
 			} else if ((f.type as string).startsWith("call")) {
-				f = (f as CallFrame)
-				const idx = this.calls?.findIndex((x) => x.id === f.id)
-
-				if (idx === -1) {
-					this.calls.push(f)
-				} else {
-					this.calls[idx] = f
+				f = f as CallFrame
+				if (f.parentID === "" && this.parentCallId === "") {
+					this.parentCallId = f.id
 				}
+				this.calls[f.id] = f
 			}
 
 			this.emit(RunEventType.Event, f)
@@ -472,48 +529,6 @@ export class Run {
 		}
 
 		return ""
-	}
-
-	public on(event: RunEventType.RunStart | RunEventType.RunFinish, listener: (data: RunFrame) => void): this;
-	public on(event: RunEventType.CallStart | RunEventType.CallProgress | RunEventType.CallContinue | RunEventType.CallChat | RunEventType.CallConfirm | RunEventType.CallFinish, listener: (data: CallFrame) => void): this;
-	public on(event: RunEventType.Prompt, listener: (data: PromptFrame) => void): this;
-	public on(event: RunEventType.Event, listener: (data: Frame) => void): this;
-	public on(event: RunEventType, listener: (data: any) => void): this {
-		if (!this.callbacks[event]) {
-			this.callbacks[event] = []
-		}
-
-		this.callbacks[event].push(listener)
-
-		return this
-	}
-
-	public text(): Promise<string> {
-		if (this.err) {
-			throw new Error(this.err)
-		}
-
-		if (!this.promise) {
-			throw new Error("Run not started")
-		}
-
-		return this.promise
-	}
-
-	public async json(): Promise<any> {
-		return JSON.parse(await this.text())
-	}
-
-	public currentChatState(): string | undefined {
-		return this.chatState
-	}
-
-	public close(): void {
-		if (this.req) {
-			this.req.destroy()
-			return
-		}
-		throw new Error("Run not started")
 	}
 
 	private emit(event: RunEventType, data: any) {
@@ -556,7 +571,7 @@ export interface ArgumentSchema {
 
 export interface Program {
 	name: string
-	blocks: Block[]
+	toolSet: Record<string, Tool>
 	openAPICache: Record<string, any>
 }
 
