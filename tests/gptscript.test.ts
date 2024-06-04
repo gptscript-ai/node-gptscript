@@ -2,7 +2,7 @@ import * as gptscript from "../src/gptscript"
 import path from "path"
 import {fileURLToPath} from "url"
 
-let client: gptscript.Client
+let g: gptscript.GPTScript
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 describe("gptscript module", () => {
@@ -11,32 +11,32 @@ describe("gptscript module", () => {
 			throw new Error("neither OPENAI_API_KEY nor GPTSCRIPT_URL is set")
 		}
 
-		client = new gptscript.Client()
+		g = new gptscript.GPTScript()
 	})
 	afterAll(() => {
-		client.close()
+		g.close()
 	})
 
-	test("creating an closing another client should work", async () => {
-		const other = new gptscript.Client()
+	test("creating an closing another instance should work", async () => {
+		const other = new gptscript.GPTScript()
 		await other.version()
 		other.close()
 	})
 
 	test("listTools returns available tools", async () => {
-		const tools = await client.listTools()
+		const tools = await g.listTools()
 		expect(tools).toBeDefined()
 	})
 
 	test("listModels returns a list of models", async () => {
 		// Similar structure to listTools
-		let models = await client.listModels()
+		let models = await g.listModels()
 		expect(models).toBeDefined()
 	})
 
 	test("version returns a gptscript version", async () => {
 		// Similar structure to listTools
-		let version = await client.version()
+		let version = await g.version()
 		expect(version).toContain("gptscript version")
 	})
 
@@ -45,7 +45,7 @@ describe("gptscript module", () => {
 			instructions: "who was the president of the united states in 1928?"
 		}
 
-		const run = await client.evaluate(t as any)
+		const run = await g.evaluate(t as any)
 		expect(run).toBeDefined()
 		expect(await run.text()).toContain("Calvin Coolidge")
 	})
@@ -60,7 +60,7 @@ describe("gptscript module", () => {
 			disableCache: true,
 		}
 
-		const run = await client.evaluate(t as any, opts)
+		const run = await g.evaluate(t as any, opts)
 		run.on(gptscript.RunEventType.CallProgress, (data: gptscript.CallFrame) => {
 			for (let output of data.output) out += `system: ${output.content}`
 		})
@@ -80,7 +80,7 @@ describe("gptscript module", () => {
 			context: [path.join(__dirname, "fixtures", "acorn-labs-context.gpt")]
 		}
 
-		const run = await client.evaluate(t as any, {disableCache: true})
+		const run = await g.evaluate(t as any, {disableCache: true})
 		out = await run.text()
 		err = run.err
 
@@ -91,7 +91,7 @@ describe("gptscript module", () => {
 	test("should execute test.gpt correctly", async () => {
 		const testGptPath = path.join(__dirname, "fixtures", "test.gpt")
 
-		const result = await (await client.run(testGptPath)).text()
+		const result = await (await g.run(testGptPath)).text()
 		expect(result).toBeDefined()
 		expect(result).toContain("Calvin Coolidge")
 	})
@@ -104,7 +104,7 @@ describe("gptscript module", () => {
 			disableCache: true,
 		}
 
-		const run = await client.run(testGptPath, opts)
+		const run = await g.run(testGptPath, opts)
 		run.on(gptscript.RunEventType.CallProgress, data => {
 			for (let output of data.output) out += `system: ${output.content}`
 		})
@@ -123,7 +123,7 @@ describe("gptscript module", () => {
 			disableCache: true,
 		}
 
-		const run = await client.run(testGptPath, opts)
+		const run = await g.run(testGptPath, opts)
 		run.on(gptscript.RunEventType.CallProgress, data => {
 			for (let output of data.output) out += `system: ${output.content}`
 		})
@@ -143,7 +143,7 @@ describe("gptscript module", () => {
 		}
 
 		try {
-			const run = await client.run(testGptPath, opts)
+			const run = await g.run(testGptPath, opts)
 			run.on(gptscript.RunEventType.CallProgress, data => {
 				run.close()
 			})
@@ -173,7 +173,7 @@ describe("gptscript module", () => {
 				instructions: "${question}"
 			}
 
-			const response = await (await client.evaluate([t0 as any, t1 as any])).text()
+			const response = await (await g.evaluate([t0 as any, t1 as any])).text()
 			expect(response).toBeDefined()
 			expect(response).toContain("Calvin Coolidge")
 		}, 30000)
@@ -197,14 +197,14 @@ describe("gptscript module", () => {
 				instructions: "${question}"
 			} as any
 
-			const response = await (await client.evaluate([t0, t1, t2], {subTool: "other"})).text()
+			const response = await (await g.evaluate([t0, t1, t2], {subTool: "other"})).text()
 			expect(response).toBeDefined()
 			expect(response).toContain("Ronald Reagan")
 		}, 30000)
 	})
 
 	test("parse file", async () => {
-		const response = await client.parse(path.join(__dirname, "fixtures", "test.gpt"))
+		const response = await g.parse(path.join(__dirname, "fixtures", "test.gpt"))
 		expect(response).toBeDefined()
 		expect(response).toHaveLength(1)
 		expect((response[0] as gptscript.Tool).instructions).toEqual("who was the president in 1928?")
@@ -212,7 +212,7 @@ describe("gptscript module", () => {
 
 	test("parse string tool", async () => {
 		const tool = "How much wood would a woodchuck chuck if a woodchuck could chuck wood?"
-		const response = await client.parseTool(tool)
+		const response = await g.parseTool(tool)
 		expect(response).toBeDefined()
 		expect(response).toHaveLength(1)
 		expect((response[0] as gptscript.Tool).instructions).toEqual(tool)
@@ -220,7 +220,7 @@ describe("gptscript module", () => {
 
 	test("parse string tool with text node", async () => {
 		const tool = "How much wood would a woodchuck chuck if a woodchuck could chuck wood?\n---\n!markdown\nThis is a text node"
-		const response = await client.parseTool(tool)
+		const response = await g.parseTool(tool)
 		expect(response).toBeDefined()
 		expect(response).toHaveLength(2)
 		expect((response[0] as gptscript.Tool).instructions).toEqual("How much wood would a woodchuck chuck if a woodchuck could chuck wood?")
@@ -229,7 +229,7 @@ describe("gptscript module", () => {
 
 	test("parse string tool global tools", async () => {
 		const tool = "Global Tools: acorn, do-work\nHow much wood would a woodchuck chuck if a woodchuck could chuck wood?"
-		const response = await client.parseTool(tool)
+		const response = await g.parseTool(tool)
 		expect(response).toBeDefined()
 		expect(response).toHaveLength(1)
 		expect((response[0] as gptscript.Tool).instructions).toEqual("How much wood would a woodchuck chuck if a woodchuck could chuck wood?")
@@ -238,7 +238,7 @@ describe("gptscript module", () => {
 
 	test("parse string tool first line shebang", async () => {
 		const tool = "\n#!/usr/bin/env python\nHow much wood would a woodchuck chuck if a woodchuck could chuck wood?"
-		const response = await client.parseTool(tool)
+		const response = await g.parseTool(tool)
 		expect(response).toBeDefined()
 		expect(response).toHaveLength(1)
 		expect((response[0] as gptscript.Tool).instructions).toEqual("#!/usr/bin/env python\nHow much wood would a woodchuck chuck if a woodchuck could chuck wood?")
@@ -260,11 +260,11 @@ describe("gptscript module", () => {
 			}
 		}
 
-		const response = await client.stringify([tool as any])
+		const response = await g.stringify([tool as any])
 		expect(response).toBeDefined()
 		expect(response).toContain("Tools: sys.write, sys.read")
 		expect(response).toContain("This is a test")
-		expect(response).toContain("Args: text: The text to write")
+		expect(response).toContain("Parameter: text: The text to write")
 	})
 
 	test("exec tool with chat", async () => {
@@ -277,7 +277,7 @@ describe("gptscript module", () => {
 		const opts = {
 			disableCache: true,
 		}
-		let run = await client.evaluate(t as any, opts)
+		let run = await g.evaluate(t as any, opts)
 
 		const inputs = [
 			"List the three largest states in the United States by area.",
@@ -316,7 +316,7 @@ describe("gptscript module", () => {
 		const opts = {
 			disableCache: true
 		}
-		let run = await client.run(path.join(__dirname, "fixtures", "chat.gpt"), opts)
+		let run = await g.run(path.join(__dirname, "fixtures", "chat.gpt"), opts)
 
 		const inputs = [
 			"List the 3 largest of the Great Lakes by volume.",
@@ -351,14 +351,14 @@ describe("gptscript module", () => {
 	}, 60000)
 
 	test("nextChat on file providing chat state", async () => {
-		let run = await client.run(path.join(__dirname, "fixtures", "chat.gpt"), {disableCache: true})
+		let run = await g.run(path.join(__dirname, "fixtures", "chat.gpt"), {disableCache: true})
 
 		run = run.nextChat("List the 3 largest of the Great Lakes by volume.")
 		expect(await run.text()).toContain("Lake Superior")
 		expect(run.err).toEqual("")
 		expect(run.state).toEqual(gptscript.RunState.Continue)
 
-		run = await client.run(path.join(__dirname, "fixtures", "chat.gpt"), {
+		run = await g.run(path.join(__dirname, "fixtures", "chat.gpt"), {
 			disableCache: true,
 			input: "What is the total area of the third one in square miles?",
 			chatState: run.currentChatState()
@@ -375,14 +375,14 @@ describe("gptscript module", () => {
 			instructions: "You are a chat bot. Don't finish the conversation until I say 'bye'.",
 			tools: ["sys.chat.finish"]
 		}
-		let run = await client.evaluate(t as any, {disableCache: true})
+		let run = await g.evaluate(t as any, {disableCache: true})
 
 		run = run.nextChat("List the three largest states in the United States by area.")
 		expect(await run.text()).toContain("California")
 		expect(run.err).toEqual("")
 		expect(run.state).toEqual(gptscript.RunState.Continue)
 
-		run = await client.evaluate(t as any, {
+		run = await g.evaluate(t as any, {
 			disableCache: true,
 			input: "What is the capital of the second one?",
 			chatState: run.currentChatState()
@@ -399,11 +399,11 @@ describe("gptscript module", () => {
 			instructions: "List the files in the current working directory.",
 			tools: ["sys.exec"]
 		}
-		const run = await client.evaluate(t as any, {confirm: true})
+		const run = await g.evaluate(t as any, {confirm: true})
 		run.on(gptscript.RunEventType.CallConfirm, async (data: gptscript.CallFrame) => {
 			expect(data.input).toContain(`"ls"`)
 			confirmFound = true
-			await client.confirm({id: data.id, accept: true})
+			await g.confirm({id: data.id, accept: true})
 		})
 
 		expect(await run.text()).toContain("README.md")
@@ -417,11 +417,11 @@ describe("gptscript module", () => {
 			instructions: "List the files in the current working directory.",
 			tools: ["sys.exec"]
 		}
-		const run = await client.evaluate(t as any, {confirm: true})
+		const run = await g.evaluate(t as any, {confirm: true})
 		run.on(gptscript.RunEventType.CallConfirm, async (data: gptscript.CallFrame) => {
 			expect(data.input).toContain(`"ls"`)
 			confirmFound = true
-			await client.confirm({id: data.id, accept: false, message: "I will not allow it!"})
+			await g.confirm({id: data.id, accept: false, message: "I will not allow it!"})
 		})
 
 		expect(await run.text()).toContain("authorization error")
@@ -435,7 +435,7 @@ describe("gptscript module", () => {
 			instructions: "Use the sys.prompt user to ask the user for 'first name' which is not sensitive. After you get their first name, say hello.",
 			tools: ["sys.prompt"]
 		}
-		const run = await client.evaluate(t as any, {prompt: true})
+		const run = await g.evaluate(t as any, {prompt: true})
 		run.on(gptscript.RunEventType.Prompt, async (data: gptscript.PromptFrame) => {
 			expect(data.message).toContain("first name")
 			expect(data.fields.length).toEqual(1)
@@ -443,7 +443,7 @@ describe("gptscript module", () => {
 			expect(data.sensitive).toBeFalsy()
 
 			promptFound = true
-			await client.promptResponse({id: data.id, responses: {[data.fields[0]]: "Clicky"}})
+			await g.promptResponse({id: data.id, responses: {[data.fields[0]]: "Clicky"}})
 		})
 
 		expect(await run.text()).toContain("Clicky")
@@ -457,7 +457,7 @@ describe("gptscript module", () => {
 			instructions: "Use the sys.prompt user to ask the user for 'first name' which is not sensitive. After you get their first name, say hello.",
 			tools: ["sys.prompt"]
 		}
-		const run = await client.evaluate(t as any)
+		const run = await g.evaluate(t as any)
 		run.on(gptscript.RunEventType.Prompt, async (data: gptscript.PromptFrame) => {
 			promptFound = true
 		})
@@ -485,7 +485,7 @@ describe("gptscript module", () => {
 			instructions: `${shebang}\nexit \${EXIT_CODE}`
 		} as gptscript.ToolDef
 
-		let run = await client.evaluate([t, contextTool], {disableCache: true, env: ["EXIT_CODE=1"]})
+		let run = await g.evaluate([t, contextTool], {disableCache: true, env: ["EXIT_CODE=1"]})
 		try {
 			await run.text()
 		} catch {

@@ -29,12 +29,12 @@ npm exec -c "gptscript https://get.gptscript.ai/echo.gpt --input 'Hello, World!'
 
 You will see "Hello, World!" in the output of the command.
 
-## Client
+## GPTScript
 
-The client allows the caller to run gptscript files, tools, and other operations (see below). There are currently no
-options for this singleton client, so `new gptscript.Client()` is all you need. Although, the intention is that a
-single client is all you need for the life of your application, you should call `close()` on the client when you are
-done.
+The GPTScript instance allows the caller to run gptscript files, tools, and other operations (see below). There are
+currently no options for this class, so `new gptscript.GPTScript()` is all you need. Although, the intention is that a
+single instance is all you need for the life of your application, you should call `close()` on the instance when you
+are done.
 
 ## Options
 
@@ -64,10 +64,10 @@ Lists all the available built-in tools.
 const gptscript = require('@gptscript-ai/gptscript');
 
 async function listTools() {
-    const client = new gptscript.Client();
-    const tools = await client.listTools();
+    const g = new gptscript.GPTScript();
+    const tools = await g.listTools();
     console.log(tools);
-    client.close()
+    g.close();
 }
 ```
 
@@ -82,13 +82,13 @@ const gptscript = require('@gptscript-ai/gptscript');
 
 async function listModels() {
     let models = [];
-    const client = new gptscript.Client();
+    const g = new gptscript.GPTScript();
     try {
-        models = await client.listModels();
+        models = await g.listModels();
     } catch (error) {
         console.error(error);
     }
-    client.close()
+    g.close();
 }
 ```
 
@@ -102,13 +102,13 @@ Get the first of the current `gptscript` binary being used for the calls.
 const gptscript = require('@gptscript-ai/gptscript');
 
 async function version() {
-    const client = new gptscript.Client();
+    const g = new gptscript.GPTScript();
     try {
-        console.log(await client.version());
+        console.log(await g.version());
     } catch (error) {
         console.error(error);
     }
-    client.close()
+    g.close();
 }
 ```
 
@@ -124,14 +124,14 @@ const t = {
     instructions: "Who was the president of the united states in 1928?"
 };
 
-const client = new gptscript.Client();
+const g = new gptscript.GPTScript();
 try {
-    const run = await client.evaluate(t);
+    const run = await g.evaluate(t);
     console.log(await run.text());
 } catch (error) {
     console.error(error);
 }
-client.close();
+g.close();
 ```
 
 ### run
@@ -147,14 +147,14 @@ const opts = {
 };
 
 async function execFile() {
-    const client = new gptscript.Client();
+    const g = new gptscript.GPTScript();
     try {
-        const run = await client.run('./hello.gpt', opts);
+        const run = await g.run('./hello.gpt', opts);
         console.log(await run.text());
     } catch (e) {
         console.error(e);
     }
-    client.close();
+    g.close();
 }
 ```
 
@@ -175,9 +175,9 @@ const opts = {
 };
 
 async function streamExecFileWithEvents() {
-    const client = new gptscript.Client();
+    const g = new gptscript.GPTScript();
     try {
-        const run = await client.run('./test.gpt', opts);
+        const run = await g.run('./test.gpt', opts);
 
         run.on(gptscript.RunEventType.Event, data => {
             console.log(`event: ${JSON.stringify(data)}`);
@@ -187,7 +187,7 @@ async function streamExecFileWithEvents() {
     } catch (e) {
         console.error(e);
     }
-    client.close();
+    g.close();
 }
 ```
 
@@ -206,15 +206,15 @@ const opts = {
 };
 
 async function streamExecFileWithEvents() {
-    const client = new gptscript.Client();
+    const g = new gptscript.GPTScript();
     try {
-        const run = await client.run('./test.gpt', opts);
+        const run = await g.run('./test.gpt', opts);
 
         run.on(gptscript.RunEventType.CallConfirm, async (data: gptscript.CallFrame) => {
             // data.Tool has the information for the command being run.
             // data.Input has the input for this command
 
-            await client.confirm({
+            await g.confirm({
                 id: data.id,
                 accept: true, // false if the command should not be run
                 message: "", // Explain the denial (ignored if accept is true)
@@ -225,7 +225,7 @@ async function streamExecFileWithEvents() {
     } catch (e) {
         console.error(e);
     }
-    client.close();
+    g.close();
 }
 ```
 
@@ -245,14 +245,14 @@ const opts = {
 };
 
 async function streamExecFileWithEvents() {
-    const client = new gptscript.Client();
+    const g = new gptscript.GPTScript();
     try {
-        const run = await client.run('./test.gpt', opts);
+        const run = await g.run('./test.gpt', opts);
 
         run.on(gptscript.RunEventType.Prompt, async (data: gptscript.PromptFrame) => {
             // data will have the information for what the gptscript is prompting.
 
-            await client.promptResponse({
+            await g.promptResponse({
                 id: data.id,
                 // response is a map of fields to values
                 responses: {[data.fields[0]]: "Some Value"}
@@ -263,7 +263,7 @@ async function streamExecFileWithEvents() {
     } catch (e) {
         console.error(e);
     }
-    client.close();
+    g.close();
 }
 ```
 
@@ -292,8 +292,8 @@ const t = {
 };
 
 async function streamExecFileWithEvents() {
-    const client = new gptscript.Client();
-    let run = await client.evaluate(t, opts);
+    const g = new gptscript.GPTScript();
+    let run = await g.evaluate(t, opts);
     try {
         // Wait for the initial run to complete.
         await run.text();
@@ -312,7 +312,7 @@ async function streamExecFileWithEvents() {
         console.error(e);
     }
 
-    client.close();
+    g.close();
 
     // The state here should either be RunState.Finished (on success) or RunState.Error (on error).
     console.log(run.state)
