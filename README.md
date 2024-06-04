@@ -50,6 +50,7 @@ None of the options is required, and the defaults will reduce the number of call
 - `chatState`: The chat state to continue, or null to start a new chat and return the state
 - `confirm`: Prompt before running potentially dangerous commands
 - `prompt`: Allow scripts to prompt the user for input
+- `env`: Extra environment variables to pass to the script in the form `KEY=VAL`
 
 ## Functions
 
@@ -240,7 +241,7 @@ const gptscript = require('@gptscript-ai/gptscript');
 const opts = {
     disableCache: true,
     input: "--testin how high is that there mouse?",
-    confirm: true
+    prompt: true
 };
 
 async function streamExecFileWithEvents() {

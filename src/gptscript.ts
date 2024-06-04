@@ -13,6 +13,7 @@ export interface RunOpts {
 	chatState?: string
 	confirm?: boolean
 	prompt?: boolean
+	env?: string[]
 }
 
 export enum RunEventType {
@@ -242,8 +243,8 @@ export class Run {
 	}
 
 	nextChat(input: string = ""): Run {
-		if (this.state === RunState.Finished || this.state === RunState.Error) {
-			throw (new Error("Run already finished"))
+		if (this.state !== RunState.Continue && this.state !== RunState.Creating && this.state !== RunState.Error) {
+			throw (new Error(`Run must in creating, continue or error state, not ${this.state}`))
 		}
 
 		let run = this
@@ -251,16 +252,16 @@ export class Run {
 			run = new (this.constructor as any)(this.requestPath, this.filePath, this.content, this.opts, this.gptscriptURL)
 		}
 
-		if (this.chatState) {
-			run.chatState = this.chatState
-		} else if (this.opts.chatState) {
-			run.chatState = this.opts.chatState
+		if (this.chatState && this.state === RunState.Continue) {
+			// Only update the chat state if the previous run didn't error.
+			// The chat state on opts will be the chat state for the last successful run.
+			this.opts.chatState = this.chatState
 		}
 		run.opts.input = input
 		if (run.content !== "") {
-			run.request({content: this.content, chatState: run.chatState})
+			run.request({content: this.content, ...this.opts})
 		} else {
-			run.request({file: this.filePath, chatState: run.chatState})
+			run.request({file: this.filePath, ...this.opts})
 		}
 
 		return run

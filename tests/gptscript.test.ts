@@ -470,4 +470,34 @@ describe("gptscript module", () => {
 		expect(run.err).toContain("prompt occurred")
 		expect(promptFound).toBeFalsy()
 	})
+
+	test("retry failed run", async () => {
+		let shebang = `#!/bin/bash\nexit \${EXIT_CODE}`
+		if (process.platform == "win32") {
+			shebang = "#!/usr/bin/env powershell.exe\n$e = $env:EXIT_CODE;\nif ($e) { Exit 1; }"
+		}
+		const t = {
+			instructions: "say hello",
+			context: ["my-context"]
+		} as gptscript.ToolDef
+		const contextTool = {
+			name: "my-context",
+			instructions: `${shebang}\nexit \${EXIT_CODE}`
+		} as gptscript.ToolDef
+
+		let run = await client.evaluate([t, contextTool], {disableCache: true, env: ["EXIT_CODE=1"]})
+		try {
+			await run.text()
+		} catch {
+		}
+
+		expect(run.err).not.toEqual("")
+
+		run.opts.env = []
+		run = run.nextChat()
+
+		await run.text()
+
+		expect(run.err).toEqual("")
+	})
 })
