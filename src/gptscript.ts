@@ -43,8 +43,10 @@ export class GPTScript {
 	constructor() {
 		this.ready = false
 		GPTScript.instanceCount++
+		if (!GPTScript.serverURL) {
+			GPTScript.serverURL = "http://" + (process.env.GPTSCRIPT_URL || "127.0.0.1:0")
+		}
 		if (GPTScript.instanceCount === 1 && process.env.GPTSCRIPT_DISABLE_SERVER !== "true") {
-			GPTScript.serverURL = process.env.GPTSCRIPT_URL || "http://127.0.0.1:0"
 			const u = new URL(GPTScript.serverURL)
 			if (u.port === "0") {
 				const srv = net.createServer()
@@ -90,7 +92,7 @@ export class GPTScript {
 		if (!this.ready) {
 			this.ready = await this.testGPTScriptURL(20)
 		}
-		const r = new RunSubcommand(cmd, "", "", {}, GPTScript.serverURL)
+		const r = new RunSubcommand(cmd, "", {}, GPTScript.serverURL)
 		r.requestNoStream(null)
 		return r.text()
 	}
@@ -106,38 +108,29 @@ export class GPTScript {
 		if (!this.ready) {
 			this.ready = await this.testGPTScriptURL(20)
 		}
-		return (new Run("run", toolName, "", opts, GPTScript.serverURL)).nextChat(opts.input)
+		return (new Run("run", toolName, opts, GPTScript.serverURL)).nextChat(opts.input)
 	}
 
 	/**
 	 * Evaluates the given tool and returns a Run object.
 	 *
-	 * @param {ToolDef | ToolDef[] | string} tool - The tool to be evaluated. Can be a single ToolDef object, an array of ToolDef objects, or a string representing the tool contents.
+	 * @param {ToolDef | ToolDef[]} tool - The tool to be evaluated. Can be a single ToolDef object or an array of ToolDef objects.
 	 * @param {RunOpts} [opts={}] - Optional options for the evaluation.
 	 * @return {Run} The Run object representing the evaluation.
 	 */
-	async evaluate(tool: ToolDef | ToolDef[] | string, opts: RunOpts = {}): Promise<Run> {
+	async evaluate(tool: ToolDef | ToolDef[], opts: RunOpts = {}): Promise<Run> {
 		if (!this.ready) {
 			this.ready = await this.testGPTScriptURL(20)
 		}
-		let toolString: string = ""
 
-		if (Array.isArray(tool)) {
-			toolString = toolArrayToContents(tool)
-		} else if (typeof tool === "string") {
-			toolString = tool
-		} else {
-			toolString = toolDefToString(tool)
-		}
-
-		return (new Run("evaluate", "", toolString, opts, GPTScript.serverURL)).nextChat(opts.input)
+		return (new Run("evaluate", tool, opts, GPTScript.serverURL)).nextChat(opts.input)
 	}
 
 	async parse(fileName: string): Promise<Block[]> {
 		if (!this.ready) {
 			this.ready = await this.testGPTScriptURL(20)
 		}
-		const r: Run = new RunSubcommand("parse", fileName, "", {}, GPTScript.serverURL)
+		const r: Run = new RunSubcommand("parse", fileName, {}, GPTScript.serverURL)
 		r.request({file: fileName})
 		return parseBlocksFromNodes((await r.json()).nodes)
 	}
@@ -146,7 +139,7 @@ export class GPTScript {
 		if (!this.ready) {
 			this.ready = await this.testGPTScriptURL(20)
 		}
-		const r: Run = new RunSubcommand("parse", "", toolContent, {}, GPTScript.serverURL)
+		const r: Run = new RunSubcommand("parse", "", {}, GPTScript.serverURL)
 		r.request({content: toolContent})
 		return parseBlocksFromNodes((await r.json()).nodes)
 	}
@@ -173,7 +166,7 @@ export class GPTScript {
 			}
 		}
 
-		const r: Run = new RunSubcommand("fmt", "", JSON.stringify({nodes: nodes}), {}, GPTScript.serverURL)
+		const r: Run = new RunSubcommand("fmt", "", {}, GPTScript.serverURL)
 		r.request({nodes: nodes})
 		return r.text()
 	}
@@ -223,8 +216,7 @@ export class GPTScript {
 export class Run {
 	public readonly id: string
 	public readonly opts: RunOpts
-	public readonly filePath: string
-	public readonly content: string
+	public readonly tools?: ToolDef | ToolDef[] | string
 	public state: RunState = RunState.Creating
 	public calls: Record<string, CallFrame> = {}
 	public err: string = ""
@@ -238,17 +230,15 @@ export class Run {
 	private stderr?: string
 	private callbacks: Record<string, ((f: Frame) => void)[]> = {}
 	private chatState?: string
-	private callIdsByParentIds: Record<string, string[]> = {}
 	private parentCallId: string = ""
 	private prg?: Program
 	private respondingToolId?: string
 
-	constructor(subCommand: string, path: string, content: string, opts: RunOpts, gptscriptURL?: string) {
+	constructor(subCommand: string, tools: ToolDef | ToolDef[] | string, opts: RunOpts, gptscriptURL?: string) {
 		this.id = randomId("run-")
 		this.requestPath = subCommand
 		this.opts = opts
-		this.filePath = path
-		this.content = content
+		this.tools = tools
 
 		this.gptscriptURL = gptscriptURL
 	}
@@ -260,7 +250,7 @@ export class Run {
 
 		let run = this
 		if (run.state !== RunState.Creating) {
-			run = new (this.constructor as any)(this.requestPath, this.filePath, this.content, this.opts, this.gptscriptURL)
+			run = new (this.constructor as any)(this.requestPath, this.tools, this.opts, this.gptscriptURL)
 		}
 
 		if (this.chatState && this.state === RunState.Continue) {
@@ -269,10 +259,13 @@ export class Run {
 			this.opts.chatState = this.chatState
 		}
 		run.opts.input = input
-		if (run.content !== "") {
-			run.request({content: this.content, ...this.opts})
+		if (Array.isArray(this.tools)) {
+			run.request({toolDefs: this.tools, ...this.opts})
+		} else if (typeof this.tools === "string") {
+			run.request({file: this.tools, ...this.opts})
 		} else {
-			run.request({file: this.filePath, ...this.opts})
+			// In this last case, this.tools is a single ToolDef.
+			run.request({toolDefs: [this.tools], ...this.opts})
 		}
 
 		return run
@@ -463,8 +456,12 @@ export class Run {
 		return this.chatState
 	}
 
-	public firstCallId(): string {
-		return this.parentCallId
+	public parentCallFrame(): CallFrame | undefined {
+		if (this.parentCallId) {
+			return this.calls[this.parentCallId]
+		}
+
+		return undefined
 	}
 
 	public program(): Program | undefined {
@@ -551,8 +548,8 @@ export class Run {
 }
 
 class RunSubcommand extends Run {
-	constructor(subCommand: string, path: string, content: string, opts: RunOpts, gptscriptURL?: string) {
-		super(subCommand, path, content, opts, gptscriptURL)
+	constructor(subCommand: string, tool: ToolDef | ToolDef[] | string, opts: RunOpts, gptscriptURL?: string) {
+		super(subCommand, tool, opts, gptscriptURL)
 	}
 
 	processStdout(data: string | object): string {
@@ -608,16 +605,19 @@ export interface ToolDef {
 	modelName: string
 	modelProvider: boolean
 	jsonResponse: boolean
-	temperature: number
+	temperature?: number
 	cache?: boolean
 	chat: boolean
-	internalPrompt: boolean
+	internalPrompt?: boolean
 	arguments: ArgumentSchema
 	tools: string[]
 	globalTools: string[]
+	globalModelName: string
 	context: string[]
+	exportContext: string[]
 	export: string[]
-	blocking: boolean
+	agents: string[]
+	credentials: string[]
 	instructions: string
 }
 
@@ -697,6 +697,7 @@ export interface Usage {
 export interface CallFrame {
 	id: string
 	tool?: Tool
+	agentGroup?: ToolReference[]
 	displayText?: string
 	inputContext: InputContext[]
 	toolCategory?: string
@@ -766,67 +767,6 @@ function parseBlocksFromNodes(nodes: any[]): Block[] {
 		}
 	}
 	return blocks
-}
-
-function toolArrayToContents(toolArray: ToolDef[]) {
-	return toolArray.map(singleTool => {
-		return toolDefToString(singleTool)
-	}).join("\n---\n")
-}
-
-function toolDefToString(tool: ToolDef) {
-	let toolInfo: string[] = []
-	if (tool.name) {
-		toolInfo.push(`Name: ${tool.name}`)
-	}
-	if (tool.description) {
-		toolInfo.push(`Description: ${tool.description}`)
-	}
-	if (tool.globalTools?.length) {
-		toolInfo.push(`Global Tools: ${tool.globalTools.join(", ")}`)
-	}
-	if (tool.tools?.length > 0) {
-		toolInfo.push(`Tools: ${tool.tools.join(", ")}`)
-	}
-	if (tool.context?.length > 0) {
-		toolInfo.push(`Context: ${tool.context.join(", ")}`)
-	}
-	if (tool.export?.length > 0) {
-		toolInfo.push(`Export: ${tool.export.join(", ")}`)
-	}
-	if (tool.maxTokens !== undefined) {
-		toolInfo.push(`Max Tokens: ${tool.maxTokens}`)
-	}
-	if (tool.modelName) {
-		toolInfo.push(`Model: ${tool.modelName}`)
-	}
-	if (tool.cache !== undefined && !tool.cache) {
-		toolInfo.push("Cache: false")
-	}
-	if (tool.temperature !== undefined) {
-		toolInfo.push(`Temperature: ${tool.temperature}`)
-	}
-	if (tool.jsonResponse) {
-		toolInfo.push("JSON Response: true")
-	}
-	if (tool.arguments && tool.arguments.properties) {
-		for (const [arg, desc] of Object.entries(tool.arguments.properties)) {
-			toolInfo.push(`Args: ${arg}: ${desc.description}`)
-		}
-	}
-	if (tool.internalPrompt) {
-		toolInfo.push(`Internal Prompt: ${tool.internalPrompt}`)
-	}
-	if (tool.chat) {
-		toolInfo.push("Chat: true")
-	}
-
-	if (tool.instructions) {
-		toolInfo.push("")
-		toolInfo.push(tool.instructions)
-	}
-
-	return toolInfo.join("\n")
 }
 
 function randomId(prefix: string): string {
