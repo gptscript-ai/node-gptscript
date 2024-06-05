@@ -591,11 +591,11 @@ export interface Property {
 }
 
 export interface Repo {
-	vcs: string
-	root: string
-	path: string
-	name: string
-	revision: string
+	VCS: string
+	Root: string
+	Path: string
+	Name: string
+	Revision: string
 }
 
 export interface ToolDef {
