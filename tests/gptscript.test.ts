@@ -1,4 +1,5 @@
 import * as gptscript from "../src/gptscript"
+import {ArgumentSchemaType, PropertyType, ToolType} from "../src/gptscript"
 import path from "path"
 import {fileURLToPath} from "url"
 
@@ -45,7 +46,7 @@ describe("gptscript module", () => {
 			instructions: "who was the president of the united states in 1928?"
 		}
 
-		const run = await g.evaluate(t as any)
+		const run = await g.evaluate(t)
 		expect(run).toBeDefined()
 		expect(await run.text()).toContain("Calvin Coolidge")
 	})
@@ -60,7 +61,7 @@ describe("gptscript module", () => {
 			disableCache: true,
 		}
 
-		const run = await g.evaluate(t as any, opts)
+		const run = await g.evaluate(t, opts)
 		run.on(gptscript.RunEventType.CallProgress, (data: gptscript.CallFrame) => {
 			for (let output of data.output) out += `system: ${output.content}`
 		})
@@ -80,7 +81,7 @@ describe("gptscript module", () => {
 			context: [path.join(__dirname, "fixtures", "acorn-labs-context.gpt")]
 		}
 
-		const run = await g.evaluate(t as any, {disableCache: true})
+		const run = await g.evaluate(t, {disableCache: true})
 		out = await run.text()
 		err = run.err
 
@@ -167,13 +168,18 @@ describe("gptscript module", () => {
 				name: "ask",
 				description: "This tool is used to ask a question",
 				arguments: {
-					type: "object",
-					question: "The question to ask"
+					type: ArgumentSchemaType,
+					properties: {
+						question: {
+							type: PropertyType,
+							description: "The question to ask",
+						}
+					}
 				},
 				instructions: "${question}"
 			}
 
-			const response = await (await g.evaluate([t0 as any, t1 as any])).text()
+			const response = await (await g.evaluate([t0, t1])).text()
 			expect(response).toBeDefined()
 			expect(response).toContain("Calvin Coolidge")
 		}, 30000)
@@ -182,11 +188,11 @@ describe("gptscript module", () => {
 			const t0 = {
 				tools: ["ask"],
 				instructions: "Only use the ask tool to ask who was the president of the united states in 1928?"
-			} as any
+			}
 			const t1 = {
 				name: "other",
 				instructions: "Who was the president of the united states in 1986?"
-			} as any
+			}
 			const t2 = {
 				name: "ask",
 				description: "This tool is used to ask a question",
@@ -195,7 +201,7 @@ describe("gptscript module", () => {
 					question: "The question to ask"
 				},
 				instructions: "${question}"
-			} as any
+			}
 
 			const response = await (await g.evaluate([t0, t1, t2], {subTool: "other"})).text()
 			expect(response).toBeDefined()
@@ -246,21 +252,22 @@ describe("gptscript module", () => {
 
 	test("format tool", async () => {
 		const tool = {
-			type: "tool",
+			id: "my-tool",
+			type: ToolType,
 			tools: ["sys.write", "sys.read"],
 			instructions: "This is a test",
 			arguments: {
-				type: "object",
+				type: ArgumentSchemaType,
 				properties: {
 					text: {
-						type: "string",
+						type: PropertyType,
 						description: "The text to write"
 					}
 				}
 			}
 		}
 
-		const response = await g.stringify([tool as any])
+		const response = await g.stringify([tool])
 		expect(response).toBeDefined()
 		expect(response).toContain("Tools: sys.write, sys.read")
 		expect(response).toContain("This is a test")
@@ -277,7 +284,7 @@ describe("gptscript module", () => {
 		const opts = {
 			disableCache: true,
 		}
-		let run = await g.evaluate(t as any, opts)
+		let run = await g.evaluate(t, opts)
 
 		const inputs = [
 			"List the three largest states in the United States by area.",
@@ -375,14 +382,14 @@ describe("gptscript module", () => {
 			instructions: "You are a chat bot. Don't finish the conversation until I say 'bye'.",
 			tools: ["sys.chat.finish"]
 		}
-		let run = await g.evaluate(t as any, {disableCache: true})
+		let run = await g.evaluate(t, {disableCache: true})
 
 		run = run.nextChat("List the three largest states in the United States by area.")
 		expect(await run.text()).toContain("California")
 		expect(run.err).toEqual("")
 		expect(run.state).toEqual(gptscript.RunState.Continue)
 
-		run = await g.evaluate(t as any, {
+		run = await g.evaluate(t, {
 			disableCache: true,
 			input: "What is the capital of the second one?",
 			chatState: run.currentChatState()
@@ -399,7 +406,7 @@ describe("gptscript module", () => {
 			instructions: "List the files in the current working directory.",
 			tools: ["sys.exec"]
 		}
-		const run = await g.evaluate(t as any, {confirm: true})
+		const run = await g.evaluate(t, {confirm: true})
 		run.on(gptscript.RunEventType.CallConfirm, async (data: gptscript.CallFrame) => {
 			expect(data.input).toContain(`"ls"`)
 			confirmFound = true
@@ -417,7 +424,7 @@ describe("gptscript module", () => {
 			instructions: "List the files in the current working directory.",
 			tools: ["sys.exec"]
 		}
-		const run = await g.evaluate(t as any, {confirm: true})
+		const run = await g.evaluate(t, {confirm: true})
 		run.on(gptscript.RunEventType.CallConfirm, async (data: gptscript.CallFrame) => {
 			expect(data.input).toContain(`"ls"`)
 			confirmFound = true
@@ -435,7 +442,7 @@ describe("gptscript module", () => {
 			instructions: "Use the sys.prompt user to ask the user for 'first name' which is not sensitive. After you get their first name, say hello.",
 			tools: ["sys.prompt"]
 		}
-		const run = await g.evaluate(t as any, {prompt: true})
+		const run = await g.evaluate(t, {prompt: true})
 		run.on(gptscript.RunEventType.Prompt, async (data: gptscript.PromptFrame) => {
 			expect(data.message).toContain("first name")
 			expect(data.fields.length).toEqual(1)
@@ -457,7 +464,7 @@ describe("gptscript module", () => {
 			instructions: "Use the sys.prompt user to ask the user for 'first name' which is not sensitive. After you get their first name, say hello.",
 			tools: ["sys.prompt"]
 		}
-		const run = await g.evaluate(t as any)
+		const run = await g.evaluate(t)
 		run.on(gptscript.RunEventType.Prompt, async (data: gptscript.PromptFrame) => {
 			promptFound = true
 		})

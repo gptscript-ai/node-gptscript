@@ -572,8 +572,10 @@ interface ChatState {
 
 export type Arguments = string | Record<string, string>
 
+export const ArgumentSchemaType = "object" as const
+
 export interface ArgumentSchema {
-	type: "object"
+	type: typeof ArgumentSchemaType
 	properties?: Record<string, Property>
 	required?: string[]
 }
@@ -584,8 +586,10 @@ export interface Program {
 	openAPICache: Record<string, any>
 }
 
+export const PropertyType = "string" as const
+
 export interface Property {
-	type: "string"
+	type: typeof PropertyType
 	description: string
 	default?: string
 }
@@ -599,26 +603,26 @@ export interface Repo {
 }
 
 export interface ToolDef {
-	name: string
-	description: string
-	maxTokens: number
-	modelName: string
-	modelProvider: boolean
-	jsonResponse: boolean
+	name?: string
+	description?: string
+	maxTokens?: number
+	modelName?: string
+	modelProvider?: boolean
+	jsonResponse?: boolean
 	temperature?: number
 	cache?: boolean
-	chat: boolean
+	chat?: boolean
 	internalPrompt?: boolean
-	arguments: ArgumentSchema
-	tools: string[]
-	globalTools: string[]
-	globalModelName: string
-	context: string[]
-	exportContext: string[]
-	export: string[]
-	agents: string[]
-	credentials: string[]
-	instructions: string
+	arguments?: ArgumentSchema
+	tools?: string[]
+	globalTools?: string[]
+	globalModelName?: string
+	context?: string[]
+	exportContext?: string[]
+	export?: string[]
+	agents?: string[]
+	credentials?: string[]
+	instructions?: string
 }
 
 export interface ToolReference {
@@ -628,13 +632,15 @@ export interface ToolReference {
 	toolID: string
 }
 
+export const ToolType = "tool" as const
+
 export interface Tool extends ToolDef {
 	id: string
-	type: "tool"
-	toolMapping: Record<string, ToolReference[]>
-	localTools: Record<string, string>
-	source: SourceRef
-	workingDir: string
+	type: typeof ToolType
+	toolMapping?: Record<string, ToolReference[]>
+	localTools?: Record<string, string>
+	source?: SourceRef
+	workingDir?: string
 }
 
 export interface SourceRef {
@@ -643,9 +649,11 @@ export interface SourceRef {
 	repo?: Repo
 }
 
+export const TextType = "text" as const
+
 export interface Text {
 	id: string
-	type: "text"
+	type: typeof TextType
 	format: string
 	content: string
 }
