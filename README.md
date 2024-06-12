@@ -31,15 +31,24 @@ You will see "Hello, World!" in the output of the command.
 
 ## GPTScript
 
-The GPTScript instance allows the caller to run gptscript files, tools, and other operations (see below). There are
-currently no options for this class, so `new gptscript.GPTScript()` is all you need. Although, the intention is that a
-single instance is all you need for the life of your application, you should call `close()` on the instance when you
-are done.
+The GPTScript instance allows the caller to run gptscript files, tools, and other operations (see below). Note that the
+intention is that a single instance is all you need for the life of your application, you should call `close()` on the
+instance when you are done.
 
-## Options
+## Global Options
+
+When creating a `GTPScript` instance, you can pass the following global options. These options are also available as
+run `Options`. Anything specified as a run option will take precedence over the global option.
+
+- `APIKey`: Specify an OpenAI API key for authenticating requests
+- `BaseURL`: A base URL for an OpenAI compatible API (the default is `https://api.openai.com/v1`)
+- `DefaultModel`: The default model to use for OpenAI requests
+
+## Run Options
 
 These are optional options that can be passed to the various `exec` functions.
 None of the options is required, and the defaults will reduce the number of calls made to the Model API.
+As noted above, the Global Options are also available to specify here. These options would take precedence.
 
 - `cache`: Enable or disable caching. Default (true).
 - `cacheDir`: Specify the cache directory.

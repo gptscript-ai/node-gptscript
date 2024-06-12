@@ -4,6 +4,31 @@ import child_process from "child_process"
 import {fileURLToPath} from "url"
 import net from "net"
 
+export interface GlobalOpts {
+	APIKey?: string
+	BaseURL?: string
+	DefaultModel?: string
+}
+
+function globalOptsToArgs(opts?: GlobalOpts): string[] {
+	const args: string[] = []
+	if (!opts) {
+		return args
+	}
+
+	if (opts.APIKey) {
+		args.push("--openai-api-key", opts.APIKey)
+	}
+	if (opts.BaseURL) {
+		args.push("--openai-base-url", opts.BaseURL)
+	}
+	if (opts.DefaultModel) {
+		args.push("--default-model", opts.DefaultModel)
+	}
+
+	return args
+}
+
 export interface RunOpts {
 	input?: string
 	disableCache?: boolean
@@ -15,6 +40,10 @@ export interface RunOpts {
 	confirm?: boolean
 	prompt?: boolean
 	env?: string[]
+
+	APIKey?: string
+	BaseURL?: string
+	DefaultModel?: string
 }
 
 export enum RunEventType {
@@ -40,7 +69,7 @@ export class GPTScript {
 
 	private ready: boolean
 
-	constructor() {
+	constructor(opts?: GlobalOpts) {
 		this.ready = false
 		GPTScript.instanceCount++
 		if (!GPTScript.serverURL) {
@@ -54,7 +83,9 @@ export class GPTScript {
 					GPTScript.serverURL = "http://" + u.hostname + ":" + String((s.address() as net.AddressInfo).port)
 					srv.close()
 
-					GPTScript.serverProcess = child_process.spawn(getCmdPath(), ["--listen-address", GPTScript.serverURL.replace("http://", ""), "sdkserver"], {
+					const args = globalOptsToArgs(opts)
+					args.push("--listen-address", GPTScript.serverURL.replace("http://", ""), "sdkserver")
+					GPTScript.serverProcess = child_process.spawn(getCmdPath(), args, {
 						env: process.env,
 						stdio: ["pipe"]
 					})
