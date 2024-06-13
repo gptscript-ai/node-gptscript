@@ -38,11 +38,13 @@ instance when you are done.
 ## Global Options
 
 When creating a `GTPScript` instance, you can pass the following global options. These options are also available as
-run `Options`. Anything specified as a run option will take precedence over the global option.
+run `Options`. Except `Env`, anything specified as a run option will take precedence over the global
+option. Any `env` provided in the run options are appended.
 
 - `APIKey`: Specify an OpenAI API key for authenticating requests
 - `BaseURL`: A base URL for an OpenAI compatible API (the default is `https://api.openai.com/v1`)
 - `DefaultModel`: The default model to use for OpenAI requests
+- `Env`: Replace the system's environment variables with these in the for `KEY=VAL`
 
 ## Run Options
 

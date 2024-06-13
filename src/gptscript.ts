@@ -8,25 +8,23 @@ export interface GlobalOpts {
 	APIKey?: string
 	BaseURL?: string
 	DefaultModel?: string
+	Env?: string[]
 }
 
-function globalOptsToArgs(opts?: GlobalOpts): string[] {
-	const args: string[] = []
+function globalOptsToEnv(env: NodeJS.ProcessEnv, opts?: GlobalOpts) {
 	if (!opts) {
-		return args
+		return
 	}
 
 	if (opts.APIKey) {
-		args.push("--openai-api-key", opts.APIKey)
+		env["OPENAI_API_KEY"] = opts.APIKey
 	}
 	if (opts.BaseURL) {
-		args.push("--openai-base-url", opts.BaseURL)
+		env["OPENAI_BASE_URL"] = opts.BaseURL
 	}
 	if (opts.DefaultModel) {
-		args.push("--default-model", opts.DefaultModel)
+		env["GPTSCRIPT_DEFAULT_MODEL"] = opts.DefaultModel
 	}
-
-	return args
 }
 
 export interface RunOpts {
@@ -83,10 +81,23 @@ export class GPTScript {
 					GPTScript.serverURL = "http://" + u.hostname + ":" + String((s.address() as net.AddressInfo).port)
 					srv.close()
 
-					const args = globalOptsToArgs(opts)
-					args.push("--listen-address", GPTScript.serverURL.replace("http://", ""), "sdkserver")
-					GPTScript.serverProcess = child_process.spawn(getCmdPath(), args, {
-						env: process.env,
+					let env = process.env
+					if (opts && opts.Env) {
+						env = {}
+						for (const v of opts.Env) {
+							const equalIndex = v.indexOf("=")
+							if (equalIndex === -1) {
+								env[v] = ""
+							} else {
+								env[v.substring(0, equalIndex)] = v.substring(equalIndex + 1)
+							}
+						}
+					}
+
+					globalOptsToEnv(env, opts)
+
+					GPTScript.serverProcess = child_process.spawn(getCmdPath(), ["--listen-address", GPTScript.serverURL.replace("http://", ""), "sdkserver"], {
+						env: env,
 						stdio: ["pipe"]
 					})
 

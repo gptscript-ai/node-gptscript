@@ -12,7 +12,7 @@ describe("gptscript module", () => {
 			throw new Error("neither OPENAI_API_KEY nor GPTSCRIPT_URL is set")
 		}
 
-		g = new gptscript.GPTScript({APIKey: process.env.GPTSCRIPT_API_KEY!})
+		g = new gptscript.GPTScript({APIKey: process.env.OPENAI_API_KEY})
 	})
 	afterAll(() => {
 		g.close()
