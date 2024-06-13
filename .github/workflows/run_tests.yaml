@@ -47,11 +47,15 @@ jobs:
       - name: Install gptscript
         run: |
           curl https://get.gptscript.ai/releases/default_windows_amd64_v1/gptscript.exe -o gptscript.exe
+      - name: Create config file
+        run: |
+          echo '{"credsStore":"file"}' > config
       - name: Install dependencies
         run: npm install
       - name: Run Tests
         env:
           GPTSCRIPT_BIN: .\gptscript.exe
+          GPTSCRIPT_CONFIG_FILE: .\config
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           NODE_GPTSCRIPT_SKIP_INSTALL_BINARY: true
         run: npm test

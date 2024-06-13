@@ -401,21 +401,24 @@ describe("gptscript module", () => {
 	}, 10000)
 
 	test("confirm", async () => {
-		let confirmFound = false
 		const t = {
 			instructions: "List the files in the current working directory.",
 			tools: ["sys.exec"]
 		}
+
+		const commands = [`"ls"`, `"dir"`]
+		let confirmCallCount = 0
 		const run = await g.evaluate(t, {confirm: true})
 		run.on(gptscript.RunEventType.CallConfirm, async (data: gptscript.CallFrame) => {
-			expect(data.input).toContain(`"ls"`)
-			confirmFound = true
+			// On Windows, ls is not always a command. The LLM will try to run dir in this case. Allow both.
+			expect(data.input).toContain(commands[confirmCallCount])
+			confirmCallCount++
 			await g.confirm({id: data.id, accept: true})
 		})
 
 		expect(await run.text()).toContain("README.md")
 		expect(run.err).toEqual("")
-		expect(confirmFound).toBeTruthy()
+		expect(confirmCallCount > 0).toBeTruthy()
 	})
 
 	test("do not confirm", async () => {
