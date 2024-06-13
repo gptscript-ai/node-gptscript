@@ -96,7 +96,7 @@ export class GPTScript {
 
 					globalOptsToEnv(env, opts)
 
-					GPTScript.serverProcess = child_process.spawn(getCmdPath(), ["--listen-address", GPTScript.serverURL.replace("http://", ""), "sdkserver"], {
+					GPTScript.serverProcess = child_process.spawn(getCmdPath(), ["sys.sdkserver", "--listen-address", GPTScript.serverURL.replace("http://", "")], {
 						env: env,
 						stdio: ["pipe"]
 					})
