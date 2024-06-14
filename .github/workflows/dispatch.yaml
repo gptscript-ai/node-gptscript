@@ -22,7 +22,7 @@ jobs:
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: Automated GPTScript Version Update
-          file_pattern: 'package*.json src/install-binary.js'
+          file_pattern: 'package*.json scripts/install-binary.js'
   tag-release:
     needs: update-gptscript-dep
     runs-on: ubuntu-latest
