@@ -79,6 +79,7 @@ describe("gptscript module", () => {
 
 		expect(out).toContain("Calvin Coolidge")
 		expect(err).toEqual("")
+		expect(run.parentCallFrame()).toBeTruthy()
 	})
 
 	test("evaluate executes a prompt correctly with context", async () => {
