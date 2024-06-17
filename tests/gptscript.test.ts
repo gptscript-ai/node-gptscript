@@ -1,5 +1,5 @@
 import * as gptscript from "../src/gptscript"
-import {ArgumentSchemaType, PropertyType, ToolType} from "../src/gptscript"
+import {ArgumentSchemaType, PropertyType, RunEventType, ToolType} from "../src/gptscript"
 import path from "path"
 import {fileURLToPath} from "url"
 
@@ -64,6 +64,14 @@ describe("gptscript module", () => {
 		const run = await g.evaluate(t, opts)
 		run.on(gptscript.RunEventType.CallProgress, (data: gptscript.CallFrame) => {
 			for (let output of data.output) out += `system: ${output.content}`
+		})
+
+		let callFinished = false
+		run.on(gptscript.RunEventType.CallFinish, (data: gptscript.CallFrame) => {
+			if (data.type == RunEventType.CallFinish) {
+				expect(callFinished).toBe(false)
+				callFinished = true
+			}
 		})
 
 		await run.text()
