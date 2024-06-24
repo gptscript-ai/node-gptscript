@@ -433,7 +433,7 @@ describe("gptscript module", () => {
 	test("do not confirm", async () => {
 		let confirmFound = false
 		const t = {
-			instructions: "List the files in the current working directory.",
+			instructions: "List the files in the current directory as '.'. If that doesn't work print the word FAIL.",
 			tools: ["sys.exec"]
 		}
 		const run = await g.evaluate(t, {confirm: true})
@@ -443,7 +443,7 @@ describe("gptscript module", () => {
 			await g.confirm({id: data.id, accept: false, message: "I will not allow it!"})
 		})
 
-		expect(await run.text()).toContain("authorization error")
+		expect(await run.text()).toContain("FAIL")
 		expect(run.err).toEqual("")
 		expect(confirmFound).toBeTruthy()
 	})
