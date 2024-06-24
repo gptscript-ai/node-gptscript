@@ -23,7 +23,7 @@ function globalOptsToEnv(env: NodeJS.ProcessEnv, opts?: GlobalOpts) {
 		env["OPENAI_BASE_URL"] = opts.BaseURL
 	}
 	if (opts.DefaultModel) {
-		env["GPTSCRIPT_DEFAULT_MODEL"] = opts.DefaultModel
+		env["GPTSCRIPT_SDKSERVER_DEFAULT_MODEL"] = opts.DefaultModel
 	}
 }
 
