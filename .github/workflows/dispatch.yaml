@@ -15,7 +15,7 @@ jobs:
       - name: Update GPTScript Version
         run: |
           jq '.version = "${{ github.event.client_payload.tag }}"' package.json > temp.json && mv temp.json package.json
-          sed -i 's/version: "v[0-9.]*"/version: "${{ github.event.client_payload.tag }}"/' scripts/install-binary.js
+          sed -i 's/version: "v.*"/version: "${{ github.event.client_payload.tag }}"/' scripts/install-binary.js
       - uses: actions/setup-node@v4
         with:
           node-version: 21
