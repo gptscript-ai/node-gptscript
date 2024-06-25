@@ -25,17 +25,11 @@ jobs:
         with:
           commit_message: Automated GPTScript Version Update
           file_pattern: 'package*.json scripts/install-binary.js'
-      - name: Bump version and push tag
-        id: tag_version
-        uses: mathieudutour/github-tag-action@v6.2
-        with:
-          github_token: ${{ secrets.BOT_GH_TOKEN }}
-          custom_tag: ${{ github.event.client_payload.tag }}
-          tag_prefix: ""
+          tagging_message: ${{ github.event.client_payload.tag }}
       - name: Create a GitHub release
         uses: ncipollo/release-action@v1
         with:
-          tag: ${{ steps.tag_version.outputs.new_tag }}
-          name: Release ${{ steps.tag_version.outputs.new_tag }}
-          body: ${{ steps.tag_version.outputs.changelog }}
-          prerelease: ${{ contains(github.ref_name, '-rc') }}
+          tag: ${{ github.event.client_payload.tag }}
+          name: Release ${{ github.event.client_payload.tag }}
+          generateReleaseNotes: true
+          prerelease: ${{ contains(github.event.client_payload.tag, '-rc') }}
