@@ -1,7 +1,5 @@
 import http from "http"
-import path from "path"
 import child_process from "child_process"
-import {fileURLToPath} from "url"
 import net from "net"
 
 export interface GlobalOpts {
@@ -791,7 +789,11 @@ function getCmdPath(): string {
 		return process.env.GPTSCRIPT_BIN
 	}
 
-	return path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "bin", "gptscript")
+	if (process.platform == "win32") {
+		return "gptscript.exe"
+	}
+
+	return "gptscript"
 }
 
 function parseBlocksFromNodes(nodes: any[]): Block[] {

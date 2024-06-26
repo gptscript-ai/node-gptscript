@@ -11,15 +11,14 @@ To use this module, you need to have Node.js installed on your system. Then, you
 npm install @gptscript-ai/gptscript
 ```
 
-This will install the gptscript binary in the `node_modules/@gptscript-ai/gptscript/bin` directory.
-
-You can opt out of this behavior by setting the `NODE_GPTSCRIPT_SKIP_INSTALL_BINARY=true` environment variable before
-running `npm install`.
+In order to use the SDK, you also need the `gptscript` CLI installed. To direct `node-gptscript` to use a specific
+binary, you can set the `GPTSCRIPT_BIN` environment variable to the path of the binary. Otherwise, `node-gptscript` will
+use what is on your `PATH`.
 
 ## Usage
 
 To use the module and run gptscripts, you need to first set the `OPENAI_API_KEY` environment variable to your OpenAI API
-key. You can also set the `GPTSCRIPT_BIN` environment variable to change the execution of the gptscripts.
+key.
 
 To ensure it is working properly, you can run the following command:
 
