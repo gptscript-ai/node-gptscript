@@ -1,0 +1,35 @@
+name: Update GPTScript Version
+on:
+  repository_dispatch:
+    types: release
+
+jobs:
+  update-gptscript-dep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.BOT_GH_TOKEN }}
+      - name: Install jq
+        uses: dcarbone/install-jq-action@v2.1.0
+      - name: Update GPTScript Version
+        run: |
+          jq '.version = "${{ github.event.client_payload.tag }}"' package.json > temp.json && mv temp.json package.json
+          sed -i 's/version: "v.*"/version: "${{ github.event.client_payload.tag }}"/' scripts/install-binary.js
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 21
+      - name: Install
+        run: npm i
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: Automated GPTScript Version Update
+          file_pattern: 'package*.json scripts/install-binary.js'
+          tagging_message: ${{ github.event.client_payload.tag }}
+      - name: Create a GitHub release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.event.client_payload.tag }}
+          name: Release ${{ github.event.client_payload.tag }}
+          generateReleaseNotes: true
+          prerelease: ${{ contains(github.event.client_payload.tag, '-rc') }}
