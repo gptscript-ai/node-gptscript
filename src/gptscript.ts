@@ -710,6 +710,15 @@ export enum RunState {
 	Error = "error"
 }
 
+export enum ToolCategory {
+	ProviderToolCategory = "provider",
+	CredentialToolCategory = "credential",
+	ContextToolCategory = "context",
+	InputToolCategory = "input",
+	OutputToolCategory = "output",
+	NoCategory = ""
+}
+
 export interface RunFrame {
 	id: string
 	type: RunEventType.RunStart | RunEventType.RunFinish
@@ -750,7 +759,7 @@ export interface CallFrame {
 	agentGroup?: ToolReference[]
 	displayText?: string
 	inputContext: InputContext[]
-	toolCategory?: string
+	toolCategory?: ToolCategory
 	toolName: string
 	parentID?: string
 	type: RunEventType.CallStart | RunEventType.CallChat | RunEventType.CallConfirm | RunEventType.CallContinue | RunEventType.CallSubCalls | RunEventType.CallProgress | RunEventType.CallFinish
