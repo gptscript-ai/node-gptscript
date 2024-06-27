@@ -106,6 +106,18 @@ describe("gptscript module", () => {
 		expect(result).toContain("Calvin Coolidge")
 	})
 
+	test("should override credentials correctly", async () => {
+		const testGptPath = path.join(__dirname, "fixtures", "credential-override.gpt")
+
+		const result = await (await g.run(testGptPath, {
+      disableCache: true,
+      credentialOverride: 'test.ts.credential_override:TEST_CRED=foo',
+    })).text()
+
+		expect(result).toBeDefined()
+		expect(result).toContain("foo")
+	})
+
 	test("run executes and stream a file correctly", async () => {
 		let out = ""
 		let err = undefined
@@ -166,6 +178,7 @@ describe("gptscript module", () => {
 		expect(errMessage).toContain("aborted")
 		expect(err).toBeUndefined()
 	})
+
 
 	describe("evaluate with multiple tools", () => {
 		test("multiple tools", async () => {
