@@ -757,6 +757,7 @@ export interface CallFrame {
 	id: string
 	tool?: Tool
 	agentGroup?: ToolReference[]
+	currentAgent?: ToolReference
 	displayText?: string
 	inputContext: InputContext[]
 	toolCategory?: ToolCategory
