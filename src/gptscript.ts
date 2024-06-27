@@ -37,6 +37,7 @@ export interface RunOpts {
 	chatState?: string
 	confirm?: boolean
 	prompt?: boolean
+    credentialOverride?: string
 	env?: string[]
 
 	APIKey?: string
