@@ -111,7 +111,7 @@ describe("gptscript module", () => {
 
 		const result = await (await g.run(testGptPath, {
       disableCache: true,
-      credentialOverride: 'test.ts.credential_override:TEST_CRED=foo',
+      credentialOverrides: ['test.ts.credential_override:TEST_CRED=foo'],
     })).text()
 
 		expect(result).toBeDefined()
