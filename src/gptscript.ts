@@ -37,7 +37,7 @@ export interface RunOpts {
 	chatState?: string
 	confirm?: boolean
 	prompt?: boolean
-    credentialOverride?: string
+	credentialOverride?: string
 	env?: string[]
 
 	APIKey?: string
@@ -802,7 +802,7 @@ function getCmdPath(): string {
 		return process.env.GPTSCRIPT_BIN
 	}
 
-	return path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "bin", "gptscript")
+	return path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "bin", "gptscript" + (process.platform === "win32" ? ".exe" : ""))
 }
 
 function parseBlocksFromNodes(nodes: any[]): Block[] {
