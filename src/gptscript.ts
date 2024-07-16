@@ -38,6 +38,7 @@ export interface RunOpts {
     confirm?: boolean
     prompt?: boolean
     credentialOverrides?: string[]
+    location?: string
     env?: string[]
 
     APIKey?: string
