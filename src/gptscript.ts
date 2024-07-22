@@ -2,7 +2,6 @@ import http from "http"
 import path from "path"
 import child_process from "child_process"
 import {fileURLToPath} from "url"
-import net from "net"
 
 export interface GlobalOpts {
     APIKey?: string
@@ -97,26 +96,22 @@ export class GPTScript {
                 }
             })
 
-            const u = new URL(GPTScript.serverURL)
-            if (u.port === "0") {
-                const srv = net.createServer()
-                const s = srv.listen(0, () => {
-                    GPTScript.serverURL = "http://" + u.hostname + ":" + String((s.address() as net.AddressInfo).port)
-                    srv.close()
+            GPTScript.serverProcess = child_process.spawn(getCmdPath(), ["sys.sdkserver", "--listen-address", GPTScript.serverURL.replace("http://", "")], {
+                env: env,
+                stdio: ["pipe", "ignore", "pipe"]
+            })
 
-                    GPTScript.startGPTScriptProcess(env)
-                })
-            } else {
-                GPTScript.startGPTScriptProcess(env)
-            }
+            GPTScript.serverProcess.stderr?.on("data", (data) => {
+                let url = data.toString().trim()
+                if (url.includes("=")) {
+                    url = url.substring(url.indexOf("=") + 1)
+                }
+
+                GPTScript.serverURL = `http://${url}`
+
+                GPTScript.serverProcess.stderr?.removeAllListeners()
+            })
         }
-    }
-
-    private static startGPTScriptProcess(env: NodeJS.ProcessEnv) {
-        GPTScript.serverProcess = child_process.spawn(getCmdPath(), ["sys.sdkserver", "--listen-address", GPTScript.serverURL.replace("http://", "")], {
-            env: env,
-            stdio: ["pipe"]
-        })
     }
 
     close(): void {
@@ -252,16 +247,19 @@ export class GPTScript {
     }
 
     private async testGPTScriptURL(count: number): Promise<boolean> {
-        try {
-            await fetch(`${GPTScript.serverURL}/healthz`)
-            return true
-        } catch {
-            if (count === 0) {
-                throw new Error("Failed to wait for gptscript to be ready")
+        while (count > 0) {
+            try {
+                await fetch(`${GPTScript.serverURL}/healthz`)
+                return true
+            } catch {
+                if (count === 0) {
+                }
+                await new Promise(r => setTimeout(r, 500))
+                count--
             }
-            await new Promise(r => setTimeout(r, 500))
-            return this.testGPTScriptURL(count - 1)
         }
+
+        throw new Error("Failed to wait for gptscript to be ready")
     }
 }
 
