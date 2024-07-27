@@ -39,6 +39,7 @@ export interface RunOpts {
     credentialOverrides?: string[]
     location?: string
     env?: string[]
+    forceSequential?: boolean
 
     APIKey?: string
     BaseURL?: string
