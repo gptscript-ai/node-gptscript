@@ -17,14 +17,18 @@ async function downloadAndExtract(url, saveDirectory) {
 
     return new Promise((resolve, reject) => {
         dlh.on('end', () => {
+            const downloadedFilePath = path.join(dlh.getDownloadPath());
             if (url.endsWith('.zip')) {
-                const zip = new AdmZip(path.join(dlh.getDownloadPath()));
+                const zip = new AdmZip(downloadedFilePath);
                 zip.extractAllTo(saveDirectory, true);
+                fs.unlinkSync(downloadedFilePath);
             } else if (url.endsWith('.tar.gz')) {
                 tar.x({
-                    file: path.join(dlh.getDownloadPath()),
+                    file: downloadedFilePath,
                     cwd: saveDirectory,
-                });
+                }).then(() => {
+                    fs.unlinkSync(downloadedFilePath); // Delete the tar.gz file after extraction
+                }).catch((error) => reject(error));
             }
             resolve();
         });
@@ -121,10 +125,8 @@ async function needToInstall() {
 
     console.log(`Downloading and extracting gptscript binary from ${url}...`);
     try {
-        downloadAndExtract(url, outputDir)
+        await downloadAndExtract(url, outputDir);
     } catch (error) {
-        console.error('Error downloading and extracting:', error)
+        console.error('Error downloading and extracting:', error);
     }
 })();
-
-
