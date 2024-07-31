@@ -7,6 +7,7 @@ export interface GlobalOpts {
     APIKey?: string
     BaseURL?: string
     DefaultModel?: string
+    DefaultModelProvider?: string
     Env?: string[]
 }
 
@@ -23,6 +24,9 @@ function globalOptsToEnv(env: NodeJS.ProcessEnv, opts?: GlobalOpts) {
     }
     if (opts.DefaultModel) {
         env["GPTSCRIPT_SDKSERVER_DEFAULT_MODEL"] = opts.DefaultModel
+    }
+    if (opts.DefaultModelProvider) {
+        env["GPTSCRIPT_SDKSERVER_DEFAULT_MODEL_PROVIDER"] = opts.DefaultModelProvider
     }
 }
 
