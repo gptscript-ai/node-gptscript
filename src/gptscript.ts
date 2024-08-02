@@ -2,6 +2,7 @@ import http from "http"
 import path from "path"
 import child_process from "child_process"
 import {fileURLToPath} from "url"
+import {gunzipSync} from "zlib";
 
 export interface GlobalOpts {
     APIKey?: string
@@ -807,6 +808,22 @@ export interface AuthResponse {
 export interface PromptResponse {
     id: string
     responses: Record<string, string>
+}
+
+export function getEnv(key: string, def: string = ''): string {
+    let v = process.env[key] || ''
+    if (v == '') {
+        return def
+    }
+
+    if (v.startsWith('{"_gz":"') && v.endsWith('"}')) {
+        try {
+            return gunzipSync(Buffer.from(v.slice(8, -2), 'base64')).toString('utf8')
+        } catch (e) {
+        }
+    }
+
+    return v
 }
 
 function getCmdPath(): string {
