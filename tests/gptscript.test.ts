@@ -1,5 +1,5 @@
 import * as gptscript from "../src/gptscript"
-import {ArgumentSchemaType, PropertyType, RunEventType, ToolType} from "../src/gptscript"
+import {ArgumentSchemaType, getEnv, PropertyType, RunEventType, ToolType} from "../src/gptscript"
 import path from "path"
 import {fileURLToPath} from "url"
 
@@ -534,5 +534,16 @@ describe("gptscript module", () => {
         await run.text()
 
         expect(run.err).toEqual("")
+    })
+
+    test("test get_env default", async () => {
+        const env = getEnv('TEST_ENV_MISSING', 'foo')
+        expect(env).toEqual('foo')
+    })
+
+    test("test get_env", async () => {
+        process.env.TEST_ENV = '{"_gz":"H4sIAEosrGYC/ytJLS5RKEvMKU0FACtB3ewKAAAA"}'
+        const env = getEnv('TEST_ENV', 'missing')
+        expect(env).toEqual('test value')
     })
 })
