@@ -179,11 +179,11 @@ export class GPTScript {
         return (new Run("evaluate", tool, opts, GPTScript.serverURL)).nextChat(opts.input)
     }
 
-    async parse(fileName: string): Promise<Block[]> {
+    async parse(fileName: string, disableCache?: boolean): Promise<Block[]> {
         if (!this.ready) {
             this.ready = await this.testGPTScriptURL(20)
         }
-        const r: Run = new RunSubcommand("parse", fileName, {}, GPTScript.serverURL)
+        const r: Run = new RunSubcommand("parse", fileName, {disableCache: disableCache}, GPTScript.serverURL)
         r.request({file: fileName})
         return parseBlocksFromNodes((await r.json()).nodes)
     }
