@@ -241,6 +241,15 @@ describe("gptscript module", () => {
         expect((response[0] as gptscript.Tool).instructions).toEqual("who was the president in 1928?")
     }, 30000)
 
+    test("parse file with metadata", async () => {
+        const response = await g.parse(path.join(__dirname, "fixtures", "parse-with-metadata.gpt"))
+        expect(response).toBeDefined()
+        expect(response).toHaveLength(2)
+        expect((response[0] as gptscript.Tool).instructions).toContain("requests.get")
+        expect((response[0] as gptscript.Tool).metaData).toEqual({"requirements.txt": "requests"})
+        expect((response[1] as gptscript.Text).format).toEqual("metadata:foo:requirements.txt")
+    }, 30000)
+
     test("parse string tool", async () => {
         const tool = "How much wood would a woodchuck chuck if a woodchuck could chuck wood?"
         const response = await g.parseTool(tool)
@@ -537,13 +546,27 @@ describe("gptscript module", () => {
     })
 
     test("test get_env default", async () => {
-        const env = getEnv('TEST_ENV_MISSING', 'foo')
-        expect(env).toEqual('foo')
+        const env = getEnv("TEST_ENV_MISSING", "foo")
+        expect(env).toEqual("foo")
     })
 
     test("test get_env", async () => {
-        process.env.TEST_ENV = '{"_gz":"H4sIAEosrGYC/ytJLS5RKEvMKU0FACtB3ewKAAAA"}'
-        const env = getEnv('TEST_ENV', 'missing')
-        expect(env).toEqual('test value')
+        process.env.TEST_ENV = "{\"_gz\":\"H4sIAEosrGYC/ytJLS5RKEvMKU0FACtB3ewKAAAA\"}"
+        const env = getEnv("TEST_ENV", "missing")
+        expect(env).toEqual("test value")
+    })
+
+    test("run file with metadata", async () => {
+        let err = undefined
+        let out = ""
+        let run = await g.run(path.join(__dirname, "fixtures", "parse-with-metadata.gpt"))
+
+        try {
+            out = await run.text()
+        } catch (e) {
+            err = e
+        }
+        expect(err).toEqual(undefined)
+        expect(out).toEqual("200")
     })
 })

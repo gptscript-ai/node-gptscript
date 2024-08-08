@@ -2,7 +2,7 @@ import http from "http"
 import path from "path"
 import child_process from "child_process"
 import {fileURLToPath} from "url"
-import {gunzipSync} from "zlib";
+import {gunzipSync} from "zlib"
 
 export interface GlobalOpts {
     APIKey?: string
@@ -679,6 +679,7 @@ export interface ToolDef {
     agents?: string[]
     credentials?: string[]
     instructions?: string
+    type?: string
 }
 
 export interface ToolReference {
@@ -694,6 +695,7 @@ export interface Tool extends ToolDef {
     id: string
     type: typeof ToolType
     toolMapping?: Record<string, ToolReference[]>
+    metaData?: Record<string, string>
     localTools?: Record<string, string>
     source?: SourceRef
     workingDir?: string
@@ -810,15 +812,15 @@ export interface PromptResponse {
     responses: Record<string, string>
 }
 
-export function getEnv(key: string, def: string = ''): string {
-    let v = process.env[key] || ''
-    if (v == '') {
+export function getEnv(key: string, def: string = ""): string {
+    let v = process.env[key] || ""
+    if (v == "") {
         return def
     }
 
-    if (v.startsWith('{"_gz":"') && v.endsWith('"}')) {
+    if (v.startsWith("{\"_gz\":\"") && v.endsWith("\"}")) {
         try {
-            return gunzipSync(Buffer.from(v.slice(8, -2), 'base64')).toString('utf8')
+            return gunzipSync(Buffer.from(v.slice(8, -2), "base64")).toString("utf8")
         } catch (e) {
         }
     }
