@@ -1,0 +1,12 @@
+Name: foo
+
+#!/usr/bin/env python3
+import requests
+
+
+resp = requests.get("https://google.com")
+print(resp.status_code, end="")
+
+---
+!metadata:foo:requirements.txt
+requests
