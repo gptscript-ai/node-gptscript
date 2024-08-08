@@ -361,8 +361,8 @@ describe("gptscript module", () => {
 
         const inputs = [
             "List the 3 largest of the Great Lakes by volume.",
-            "What is the volume of the second one in cubic miles?",
-            "What is the total area of the third one in square miles?"
+            "What is the volume of the second in the list in cubic miles?",
+            "What is the total area of the third in the list in square miles?"
         ]
 
         const expectedOutputs = [
@@ -560,6 +560,22 @@ describe("gptscript module", () => {
         let err = undefined
         let out = ""
         let run = await g.run(path.join(__dirname, "fixtures", "parse-with-metadata.gpt"))
+
+        try {
+            out = await run.text()
+        } catch (e) {
+            err = e
+        }
+        expect(err).toEqual(undefined)
+        expect(out).toEqual("200")
+    }, 20000)
+
+    test("run parsed tool with metadata", async () => {
+        let err = undefined
+        let out = ""
+        let tools = await g.parse(path.join(__dirname, "fixtures", "parse-with-metadata.gpt"))
+
+        let run = await g.evaluate(tools[0])
 
         try {
             out = await run.text()
