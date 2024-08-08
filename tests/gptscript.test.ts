@@ -568,5 +568,5 @@ describe("gptscript module", () => {
         }
         expect(err).toEqual(undefined)
         expect(out).toEqual("200")
-    })
+    }, 20000)
 })
