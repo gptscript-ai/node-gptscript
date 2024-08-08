@@ -680,6 +680,7 @@ export interface ToolDef {
     credentials?: string[]
     instructions?: string
     type?: string
+    metaData?: Record<string, string>
 }
 
 export interface ToolReference {
@@ -695,7 +696,6 @@ export interface Tool extends ToolDef {
     id: string
     type: typeof ToolType
     toolMapping?: Record<string, ToolReference[]>
-    metaData?: Record<string, string>
     localTools?: Record<string, string>
     source?: SourceRef
     workingDir?: string
