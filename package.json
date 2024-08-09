@@ -19,6 +19,7 @@
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "postinstall": "node scripts/install-binary.js",
     "clean": "rm -rf dist",
+    "prepare": "npm run build",
     "build": "tsc"
   },
   "keywords": [
