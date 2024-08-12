@@ -72,7 +72,7 @@ if (process.platform === 'win32') {
 const gptscript_info = {
     name: "gptscript",
     url: "https://github.com/gptscript-ai/gptscript/releases/download/",
-    version: "v0.9.5-rc1"
+    version: "v0.9.5-rc2"
 }
 
 const pltfm = {
