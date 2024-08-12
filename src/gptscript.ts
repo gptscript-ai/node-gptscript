@@ -838,6 +838,10 @@ function getCmdPath(): string {
 
 function parseBlocksFromNodes(nodes: any[]): Block[] {
     const blocks: Block[] = []
+    if (!nodes) {
+        return blocks
+    }
+
     for (const node of nodes) {
         if (node.toolNode) {
             if (!node.toolNode.tool.id) {
