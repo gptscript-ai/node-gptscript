@@ -241,6 +241,12 @@ describe("gptscript module", () => {
         expect((response[0] as gptscript.Tool).instructions).toEqual("who was the president in 1928?")
     }, 30000)
 
+    test("parse empty file", async () => {
+        const response = await g.parse(path.join(__dirname, "fixtures", "empty.gpt"))
+        expect(response).toBeDefined()
+        expect(response).toHaveLength(0)
+    }, 30000)
+
     test("parse file with metadata", async () => {
         const response = await g.parse(path.join(__dirname, "fixtures", "parse-with-metadata.gpt"))
         expect(response).toBeDefined()
@@ -256,6 +262,12 @@ describe("gptscript module", () => {
         expect(response).toBeDefined()
         expect(response).toHaveLength(1)
         expect((response[0] as gptscript.Tool).instructions).toEqual(tool)
+    }, 30000)
+
+    test("parse empty string tool", async () => {
+        const response = await g.parseTool("")
+        expect(response).toBeDefined()
+        expect(response).toHaveLength(0)
     }, 30000)
 
     test("parse string tool with text node", async () => {
