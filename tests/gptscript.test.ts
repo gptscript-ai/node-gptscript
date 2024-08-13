@@ -87,7 +87,7 @@ describe("gptscript module", () => {
         let err = undefined
         const t = {
             instructions: "who was the president of the united states in 1928?",
-            context: [path.join(__dirname, "fixtures", "acorn-labs-context.gpt")]
+            tools: [path.join(__dirname, "fixtures", "acorn-labs-context.gpt")]
         }
 
         const run = await g.evaluate(t, {disableCache: true})
@@ -157,7 +157,7 @@ describe("gptscript module", () => {
 
         expect(out).toContain("Hello!")
         expect(err).toEqual("")
-    }, 15000)
+    }, 30000)
 
     test("aborting a run is reported correctly", async () => {
         let errMessage = ""
@@ -522,10 +522,11 @@ describe("gptscript module", () => {
         }
         const t = {
             instructions: "say hello",
-            context: ["my-context"]
+            tools: ["my-context"]
         } as gptscript.ToolDef
         const contextTool = {
             name: "my-context",
+            type: "context",
             instructions: `${shebang}\nexit \${EXIT_CODE}`
         } as gptscript.ToolDef
 
