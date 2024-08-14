@@ -188,7 +188,7 @@ export class GPTScript {
         return parseBlocksFromNodes((await r.json()).nodes)
     }
 
-    async parseTool(toolContent: string): Promise<Block[]> {
+    async parseContent(toolContent: string): Promise<Block[]> {
         if (!this.ready) {
             this.ready = await this.testGPTScriptURL(20)
         }
@@ -250,6 +250,70 @@ export class GPTScript {
         if (resp.status < 200 || resp.status >= 400) {
             throw new Error(`Failed to respond to prompt ${response.id}: ${await resp.text()}`)
         }
+    }
+
+    /**
+     * Loads a file into a Program.
+     *
+     * @param {string} fileName - The name of the file to load.
+     * @param {boolean} [disableCache] - Whether to disable the cache.
+     * @param {string} [subTool] - The sub-tool to use.
+     * @return {Promise<LoadResponse>} The loaded program.
+     */
+    async load(
+        fileName: string,
+        disableCache?: boolean,
+        subTool?: string
+    ): Promise<LoadResponse> {
+        return this._load({ file: fileName, disableCache, subTool });
+    }
+
+    /**
+     * Loads content into a Program.
+     *
+     * @param {string} content - The content to load.
+     * @param {boolean} [disableCache] - Whether to disable the cache.
+     * @param {string} [subTool] - The sub-tool to use.
+     * @return {Promise<LoadResponse>} The loaded program.
+     */
+    async loadContent(
+        content: string,
+        disableCache?: boolean,
+        subTool?: string
+    ): Promise<LoadResponse> {
+        return this._load({ content, disableCache, subTool });
+    }
+
+    /**
+     * Loads tools into a Program.
+     *
+     * @param {ToolDef[]} toolDefs - The tools to load.
+     * @param {boolean} [disableCache] - Whether to disable the cache.
+     * @param {string} [subTool] - The sub-tool to use.
+     * @return {Promise<LoadResponse>} The loaded program.
+     */
+    async loadTools(
+        toolDefs: ToolDef[],
+        disableCache?: boolean,
+        subTool?: string
+    ): Promise<LoadResponse> {
+        return this._load({ toolDefs, disableCache, subTool });
+    }
+
+    /**
+     * Helper method to handle the common logic for loading.
+     *
+     * @param {any} payload - The payload to send in the request.
+     * @return {Promise<LoadResponse>} The loaded program.
+     */
+    private async _load(payload: any): Promise<LoadResponse> {
+        if (!this.ready) {
+            this.ready = await this.testGPTScriptURL(20);
+        }
+        const r: Run = new RunSubcommand("load", payload.toolDefs || [], {}, GPTScript.serverURL);
+
+        r.request(payload);
+        return (await r.json()) as LoadResponse;
     }
 
     private async testGPTScriptURL(count: number): Promise<boolean> {
@@ -810,6 +874,10 @@ export interface AuthResponse {
 export interface PromptResponse {
     id: string
     responses: Record<string, string>
+}
+
+export interface LoadResponse {
+    program: Program;
 }
 
 export function getEnv(key: string, def: string = ""): string {
