@@ -258,21 +258,21 @@ describe("gptscript module", () => {
 
     test("parse string tool", async () => {
         const tool = "How much wood would a woodchuck chuck if a woodchuck could chuck wood?"
-        const response = await g.parseTool(tool)
+        const response = await g.parseContent(tool)
         expect(response).toBeDefined()
         expect(response).toHaveLength(1)
         expect((response[0] as gptscript.Tool).instructions).toEqual(tool)
     }, 30000)
 
     test("parse empty string tool", async () => {
-        const response = await g.parseTool("")
+        const response = await g.parseContent("")
         expect(response).toBeDefined()
         expect(response).toHaveLength(0)
     }, 30000)
 
     test("parse string tool with text node", async () => {
         const tool = "How much wood would a woodchuck chuck if a woodchuck could chuck wood?\n---\n!markdown\nThis is a text node"
-        const response = await g.parseTool(tool)
+        const response = await g.parseContent(tool)
         expect(response).toBeDefined()
         expect(response).toHaveLength(2)
         expect((response[0] as gptscript.Tool).instructions).toEqual("How much wood would a woodchuck chuck if a woodchuck could chuck wood?")
@@ -281,7 +281,7 @@ describe("gptscript module", () => {
 
     test("parse string tool global tools", async () => {
         const tool = "Global Tools: acorn, do-work\nHow much wood would a woodchuck chuck if a woodchuck could chuck wood?"
-        const response = await g.parseTool(tool)
+        const response = await g.parseContent(tool)
         expect(response).toBeDefined()
         expect(response).toHaveLength(1)
         expect((response[0] as gptscript.Tool).instructions).toEqual("How much wood would a woodchuck chuck if a woodchuck could chuck wood?")
@@ -290,7 +290,7 @@ describe("gptscript module", () => {
 
     test("parse string tool first line shebang", async () => {
         const tool = "\n#!/usr/bin/env python\nHow much wood would a woodchuck chuck if a woodchuck could chuck wood?"
-        const response = await g.parseTool(tool)
+        const response = await g.parseContent(tool)
         expect(response).toBeDefined()
         expect(response).toHaveLength(1)
         expect((response[0] as gptscript.Tool).instructions).toEqual("#!/usr/bin/env python\nHow much wood would a woodchuck chuck if a woodchuck could chuck wood?")
