@@ -33,6 +33,7 @@ jobs:
         env:
           GPTSCRIPT_BIN: ./gptscriptexe
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           NODE_GPTSCRIPT_SKIP_INSTALL_BINARY: true
         run: npm test
 
