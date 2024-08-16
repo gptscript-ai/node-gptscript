@@ -52,7 +52,7 @@ describe("gptscript module", () => {
             expect(model.startsWith("claude-3-")).toBe(true)
             expect(model.endsWith("from github.com/gptscript-ai/claude3-anthropic-provider")).toBe(true)
         }
-    })
+    }, 15000)
 
     test("listModels with default provider returns a list of models from that provider", async () => {
         if (!process.env.ANTHROPIC_API_KEY) {
@@ -71,7 +71,7 @@ describe("gptscript module", () => {
         } finally {
             newg.close()
         }
-    })
+    }, 15000)
 
     test("version returns a gptscript version", async () => {
         // Similar structure to listTools
