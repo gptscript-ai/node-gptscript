@@ -38,3 +38,4 @@ jobs:
       git_ref: ${{ github.event.pull_request.head.sha }}
     secrets:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

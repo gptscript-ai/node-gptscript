@@ -9,6 +9,8 @@ on:
     secrets:
       OPENAI_API_KEY:
         required: true
+      ANTHROPIC_API_KEY:
+        required: true
 
 jobs:
   test-linux:
