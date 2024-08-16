@@ -73,8 +73,10 @@ export class GPTScript {
 
 
     private ready: boolean
+    private opts: GlobalOpts
 
     constructor(opts?: GlobalOpts) {
+        this.opts = opts || {}
         this.ready = false
         GPTScript.instanceCount++
         if (!GPTScript.serverURL) {
@@ -82,9 +84,9 @@ export class GPTScript {
         }
         if (GPTScript.instanceCount === 1 && process.env.GPTSCRIPT_DISABLE_SERVER !== "true") {
             let env = process.env
-            if (opts && opts.Env) {
+            if (this.opts.Env) {
                 env = {}
-                for (const v of opts.Env) {
+                for (const v of this.opts.Env) {
                     const equalIndex = v.indexOf("=")
                     if (equalIndex === -1) {
                         env[v] = ""
@@ -94,7 +96,7 @@ export class GPTScript {
                 }
             }
 
-            globalOptsToEnv(env, opts)
+            globalOptsToEnv(env, this.opts)
             process.on("exit", (code) => {
                 if (GPTScript.serverProcess) {
                     GPTScript.serverProcess.stdin?.end()
@@ -133,20 +135,30 @@ export class GPTScript {
         return this.runBasicCommand("list-tools")
     }
 
-    listModels(): Promise<string> {
-        return this.runBasicCommand("list-models")
+    listModels(providers?: string[], credentialOverrides?: string[]): Promise<string> {
+        if (this.opts.DefaultModelProvider) {
+            if (!providers) {
+                providers = []
+            }
+            providers.push(this.opts.DefaultModelProvider)
+        }
+        return this.runBasicCommand("list-models", {
+            "providers": providers,
+            "env": this.opts.Env,
+            "credentialOverrides": credentialOverrides
+        })
     }
 
     version(): Promise<string> {
         return this.runBasicCommand("version")
     }
 
-    async runBasicCommand(cmd: string): Promise<string> {
+    async runBasicCommand(cmd: string, body?: any): Promise<string> {
         if (!this.ready) {
             this.ready = await this.testGPTScriptURL(20)
         }
         const r = new RunSubcommand(cmd, "", {}, GPTScript.serverURL)
-        r.requestNoStream(null)
+        r.requestNoStream(body)
         return r.text()
     }
 
@@ -161,7 +173,8 @@ export class GPTScript {
         if (!this.ready) {
             this.ready = await this.testGPTScriptURL(20)
         }
-        return (new Run("run", toolName, opts, GPTScript.serverURL)).nextChat(opts.input)
+
+        return (new Run("run", toolName, {...this.opts, ...opts}, GPTScript.serverURL)).nextChat(opts.input)
     }
 
     /**
@@ -176,7 +189,7 @@ export class GPTScript {
             this.ready = await this.testGPTScriptURL(20)
         }
 
-        return (new Run("evaluate", tool, opts, GPTScript.serverURL)).nextChat(opts.input)
+        return (new Run("evaluate", tool, {...this.opts, ...opts}, GPTScript.serverURL)).nextChat(opts.input)
     }
 
     async parse(fileName: string, disableCache?: boolean): Promise<Block[]> {
@@ -265,7 +278,7 @@ export class GPTScript {
         disableCache?: boolean,
         subTool?: string
     ): Promise<LoadResponse> {
-        return this._load({ file: fileName, disableCache, subTool });
+        return this._load({file: fileName, disableCache, subTool})
     }
 
     /**
@@ -281,7 +294,7 @@ export class GPTScript {
         disableCache?: boolean,
         subTool?: string
     ): Promise<LoadResponse> {
-        return this._load({ content, disableCache, subTool });
+        return this._load({content, disableCache, subTool})
     }
 
     /**
@@ -297,7 +310,7 @@ export class GPTScript {
         disableCache?: boolean,
         subTool?: string
     ): Promise<LoadResponse> {
-        return this._load({ toolDefs, disableCache, subTool });
+        return this._load({toolDefs, disableCache, subTool})
     }
 
     /**
@@ -308,12 +321,12 @@ export class GPTScript {
      */
     private async _load(payload: any): Promise<LoadResponse> {
         if (!this.ready) {
-            this.ready = await this.testGPTScriptURL(20);
+            this.ready = await this.testGPTScriptURL(20)
         }
-        const r: Run = new RunSubcommand("load", payload.toolDefs || [], {}, GPTScript.serverURL);
+        const r: Run = new RunSubcommand("load", payload.toolDefs || [], {}, GPTScript.serverURL)
 
-        r.request(payload);
-        return (await r.json()) as LoadResponse;
+        r.request(payload)
+        return (await r.json()) as LoadResponse
     }
 
     private async testGPTScriptURL(count: number): Promise<boolean> {
@@ -511,12 +524,16 @@ export class Run {
 
         const options = this.requestOptions(this.gptscriptURL, this.requestPath, tool) as any
         if (tool) {
-            options.body = {...tool, ...this.opts}
+            options.body = JSON.stringify({...tool, ...this.opts})
         }
         const req = new Request(this.gptscriptURL + "/" + this.requestPath, options)
 
         this.promise = new Promise<string>(async (resolve, reject) => {
-            fetch(req).then(resp => resp.json()).then(res => resolve(res.stdout)).catch(e => {
+            fetch(req).then(resp => {
+                return resp.json()
+            }).then(res => {
+                resolve(res.stdout)
+            }).catch(e => {
                 reject(e)
             })
         })
