@@ -3,6 +3,7 @@ import {ArgumentSchemaType, getEnv, PropertyType, RunEventType, ToolType} from "
 import path from "path"
 import {fileURLToPath} from "url"
 
+let gFirst: gptscript.GPTScript
 let g: gptscript.GPTScript
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -12,9 +13,13 @@ describe("gptscript module", () => {
             throw new Error("neither OPENAI_API_KEY nor GPTSCRIPT_URL is set")
         }
 
+        // Start an initial GPTScript instance.
+        // This one doesn't have any options, but it's there to ensure that using another instance works as expected in all cases.
+        gFirst = new gptscript.GPTScript()
         g = new gptscript.GPTScript({APIKey: process.env.OPENAI_API_KEY})
     })
     afterAll(() => {
+        gFirst.close()
         g.close()
     })
 
@@ -33,6 +38,39 @@ describe("gptscript module", () => {
         // Similar structure to listTools
         let models = await g.listModels()
         expect(models).toBeDefined()
+    })
+
+    test("listModels with providers returns a list of models from that provider", async () => {
+        if (!process.env.ANTHROPIC_API_KEY) {
+            return
+        }
+
+        let models = await g.listModels(["github.com/gptscript-ai/claude3-anthropic-provider"], ["github.com/gptscript-ai/claude3-anthropic-provider/credential:ANTHROPIC_API_KEY"])
+        expect(models).toBeDefined()
+        for (let model of models.split("\n")) {
+            expect(model).toBeDefined()
+            expect(model.startsWith("claude-3-")).toBe(true)
+            expect(model.endsWith("from github.com/gptscript-ai/claude3-anthropic-provider")).toBe(true)
+        }
+    })
+
+    test("listModels with default provider returns a list of models from that provider", async () => {
+        if (!process.env.ANTHROPIC_API_KEY) {
+            return
+        }
+
+        const newg = new gptscript.GPTScript({DefaultModelProvider: "github.com/gptscript-ai/claude3-anthropic-provider"})
+        try {
+            let models = await newg.listModels(undefined, ["github.com/gptscript-ai/claude3-anthropic-provider/credential:ANTHROPIC_API_KEY"])
+            expect(models).toBeDefined()
+            for (let model of models.split("\n")) {
+                expect(model).toBeDefined()
+                expect(model.startsWith("claude-3-")).toBe(true)
+                expect(model.endsWith("from github.com/gptscript-ai/claude3-anthropic-provider")).toBe(true)
+            }
+        } finally {
+            newg.close()
+        }
     })
 
     test("version returns a gptscript version", async () => {
