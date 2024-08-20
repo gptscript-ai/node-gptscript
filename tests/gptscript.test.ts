@@ -545,6 +545,27 @@ describe("gptscript module", () => {
         expect(promptFound).toBeTruthy()
     })
 
+    test("prompt with metadata", async () => {
+        let promptFound = false
+        const run = await g.run("sys.prompt", {
+            prompt: true,
+            input: "{\"fields\":\"first name\",\"metadata\":{\"key\":\"value\"}}"
+        })
+        run.on(gptscript.RunEventType.Prompt, async (data: gptscript.PromptFrame) => {
+            expect(data.fields.length).toEqual(1)
+            expect(data.fields[0]).toEqual("first name")
+            expect(data.metadata).toEqual({key: "value"})
+            expect(data.sensitive).toBeFalsy()
+
+            promptFound = true
+            await g.promptResponse({id: data.id, responses: {[data.fields[0]]: "Clicky"}})
+        })
+
+        expect(await run.text()).toContain("Clicky")
+        expect(run.err).toEqual("")
+        expect(promptFound).toBeTruthy()
+    })
+
     test("prompt without prompt allowed should fail", async () => {
         let promptFound = false
         const t = {
