@@ -878,6 +878,7 @@ export interface PromptFrame {
     message: string
     fields: string[]
     sensitive: boolean
+    metadata: Record<string, string>
 }
 
 export type Frame = RunFrame | CallFrame | PromptFrame
