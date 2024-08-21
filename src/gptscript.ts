@@ -421,7 +421,7 @@ export class Run {
         if (out.done === undefined || !out.done) {
             this.chatState = JSON.stringify(out.state)
             this.state = RunState.Continue
-            this.respondingToolId = out.toolId
+            this.respondingToolId = out.toolID
         } else {
             this.state = RunState.Finished
             this.chatState = undefined
@@ -704,7 +704,7 @@ interface ChatState {
     state: string
     done: boolean
     content: string
-    toolId: string
+    toolID: string
 }
 
 export type Arguments = string | Record<string, string>
