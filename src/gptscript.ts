@@ -719,6 +719,7 @@ export interface ArgumentSchema {
 
 export interface Program {
     name: string
+    entryToolId: string
     toolSet: Record<string, Tool>
     openAPICache: Record<string, any>
 }
