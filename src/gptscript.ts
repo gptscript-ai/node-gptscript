@@ -85,7 +85,9 @@ export class GPTScript {
         if (GPTScript.instanceCount === 1 && process.env.GPTSCRIPT_DISABLE_SERVER !== "true") {
             let env = process.env
             if (this.opts.Env) {
-                env = {}
+                env = {
+                    "NODE_ENV": process.env.NODE_ENV
+                }
                 for (const v of this.opts.Env) {
                     const equalIndex = v.indexOf("=")
                     if (equalIndex === -1) {
