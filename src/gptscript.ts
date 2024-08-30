@@ -215,16 +215,16 @@ export class GPTScript {
         const nodes: any[] = []
 
         for (const block of blocks) {
-            if (block.type === "tool") {
-                nodes.push({
-                    toolNode: {
-                        tool: block
-                    }
-                })
-            } else if (block.type === "text") {
+            if (block.type === "text") {
                 nodes.push({
                     textNode: {
                         text: "!" + (block.format || "text") + "\n" + block.content
+                    }
+                })
+            } else {
+                nodes.push({
+                    toolNode: {
+                        tool: block
                     }
                 })
             }

@@ -383,6 +383,31 @@ describe("gptscript module", () => {
         expect(response).toContain("Parameter: text: The text to write")
     })
 
+    test("format context tool", async () => {
+        const tool = {
+            id: "my-tool",
+            type: "context" as ToolType,
+            tools: ["sys.write", "sys.read"],
+            instructions: "This is a test",
+            arguments: {
+                type: ArgumentSchemaType,
+                properties: {
+                    text: {
+                        type: PropertyType,
+                        description: "The text to write"
+                    }
+                }
+            }
+        }
+
+        const response = await g.stringify([tool])
+        expect(response).toBeDefined()
+        expect(response).toContain("Tools: sys.write, sys.read")
+        expect(response).toContain("This is a test")
+        expect(response).toContain("Parameter: text: The text to write")
+        expect(response).toContain("Type: Context")
+    })
+
     test("exec tool with chat", async () => {
         let err = undefined
         const t = {
