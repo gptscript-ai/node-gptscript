@@ -66,23 +66,6 @@ As noted above, the Global Options are also available to specify here. These opt
 
 ## Functions
 
-### listTools
-
-Lists all the available built-in tools.
-
-**Usage:**
-
-```javascript
-const gptscript = require('@gptscript-ai/gptscript');
-
-async function listTools() {
-    const g = new gptscript.GPTScript();
-    const tools = await g.listTools();
-    console.log(tools);
-    g.close();
-}
-```
-
 ### listModels
 
 Lists all the available models, returns a list.

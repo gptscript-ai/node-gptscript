@@ -133,10 +133,6 @@ export class GPTScript {
         }
     }
 
-    listTools(): Promise<string> {
-        return this.runBasicCommand("list-tools")
-    }
-
     listModels(providers?: string[], credentialOverrides?: string[]): Promise<string> {
         if (this.opts.DefaultModelProvider) {
             if (!providers) {

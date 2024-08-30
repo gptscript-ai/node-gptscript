@@ -29,11 +29,6 @@ describe("gptscript module", () => {
         other.close()
     })
 
-    test("listTools returns available tools", async () => {
-        const tools = await g.listTools()
-        expect(tools).toBeDefined()
-    })
-
     test("listModels returns a list of models", async () => {
         // Similar structure to listTools
         let models = await g.listModels()
