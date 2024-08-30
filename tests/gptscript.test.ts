@@ -2,6 +2,7 @@ import * as gptscript from "../src/gptscript"
 import {ArgumentSchemaType, getEnv, PropertyType, RunEventType, TextType, ToolType} from "../src/gptscript"
 import path from "path"
 import {fileURLToPath} from "url"
+import * as fs from "node:fs"
 
 let gFirst: gptscript.GPTScript
 let g: gptscript.GPTScript
@@ -286,6 +287,7 @@ describe("gptscript module", () => {
             await g.parse(path.join(__dirname, "fixtures", "non-existent.gpt"))
         } catch (e) {
             expect(e).toBeDefined()
+            expect(typeof e !== "string").toBeTruthy()
             return
         }
         expect(false).toBeTruthy()
@@ -296,6 +298,7 @@ describe("gptscript module", () => {
             await g.parse("github.com/thedadams/dne")
         } catch (e) {
             expect(e).toBeDefined()
+            expect(typeof e !== "string").toBeTruthy()
             return
         }
         expect(false).toBeTruthy()
@@ -407,6 +410,59 @@ describe("gptscript module", () => {
         expect(response).toContain("Parameter: text: The text to write")
         expect(response).toContain("Type: Context")
     })
+
+    test("load simple file", async () => {
+        const response = await g.load(path.join(__dirname, "fixtures", "test.gpt"))
+        expect(response.program).toBeDefined()
+        expect(response.program.name).toBeTruthy()
+        expect(response.program.entryToolId).toBeTruthy()
+        expect(response.program.toolSet).toBeDefined()
+    }, 30000)
+
+    test("load remote tool", async () => {
+        const response = await g.load("github.com/gptscript-ai/context/workspace")
+        expect(response.program).toBeDefined()
+        expect(response.program.name).toBeTruthy()
+        expect(response.program.entryToolId).toBeTruthy()
+        expect(response.program.toolSet).toBeDefined()
+    }, 30000)
+
+    test("load content", async () => {
+        const content = fs.readFileSync(path.join(__dirname, "fixtures", "test.gpt"), {encoding: "utf8"})
+        const response = await g.loadContent(content)
+        expect(response.program).toBeDefined()
+        // Name will not be defined in this case.
+        expect(response.program.name).toBeFalsy()
+        expect(response.program.entryToolId).toBeTruthy()
+        expect(response.program.toolSet).toBeDefined()
+    }, 30000)
+
+    test("load tools", async () => {
+        const tools = [{
+            tools: ["ask"],
+            instructions: "Only use the ask tool to ask who was the president of the united states in 1928?"
+        },
+            {
+                name: "other",
+                instructions: "Who was the president of the united states in 1986?"
+            },
+            {
+                name: "ask",
+                description: "This tool is used to ask a question",
+                arguments: {
+                    type: "object",
+                    question: "The question to ask"
+                },
+                instructions: "${question}"
+            },
+        ] as gptscript.ToolDef[]
+        const response = await g.loadTools(tools)
+        expect(response.program).toBeDefined()
+        // Name will not be defined in this case.
+        expect(response.program.name).toBeFalsy()
+        expect(response.program.entryToolId).toBeTruthy()
+        expect(response.program.toolSet).toBeDefined()
+    }, 30000)
 
     test("exec tool with chat", async () => {
         let err = undefined

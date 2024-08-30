@@ -172,6 +172,10 @@ export class GPTScript {
             this.ready = await this.testGPTScriptURL(20)
         }
 
+        if (this.opts.Env) {
+            opts.env = this.opts.Env.concat(opts.env || [])
+        }
+
         return (new Run("run", toolName, {...this.opts, ...opts}, GPTScript.serverURL)).nextChat(opts.input)
     }
 
@@ -185,6 +189,10 @@ export class GPTScript {
     async evaluate(tool: Tool | ToolDef | ToolDef[], opts: RunOpts = {}): Promise<Run> {
         if (!this.ready) {
             this.ready = await this.testGPTScriptURL(20)
+        }
+
+        if (this.opts.Env) {
+            opts.env = this.opts.Env.concat(opts.env || [])
         }
 
         return (new Run("evaluate", tool, {...this.opts, ...opts}, GPTScript.serverURL)).nextChat(opts.input)
