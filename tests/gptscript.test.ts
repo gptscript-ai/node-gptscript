@@ -1,5 +1,5 @@
 import * as gptscript from "../src/gptscript"
-import {ArgumentSchemaType, getEnv, PropertyType, RunEventType, ToolType} from "../src/gptscript"
+import {ArgumentSchemaType, getEnv, PropertyType, RunEventType, TextType, ToolType} from "../src/gptscript"
 import path from "path"
 import {fileURLToPath} from "url"
 
@@ -124,6 +124,7 @@ describe("gptscript module", () => {
         let out = ""
         let err = undefined
         const t = {
+            type: "tool" as ToolType,
             instructions: "who was the president of the united states in 1928?",
             tools: [path.join(__dirname, "fixtures", "acorn-labs-context.gpt")]
         }
@@ -213,7 +214,7 @@ describe("gptscript module", () => {
             await run.text()
             err = run.err
         } catch (error: any) {
-            errMessage = error
+            errMessage = error.toString()
         }
 
         expect(errMessage).toContain("aborted")
@@ -285,6 +286,35 @@ describe("gptscript module", () => {
         expect(response).toHaveLength(0)
     }, 30000)
 
+    test("parse non-existent file", async () => {
+        try {
+            await g.parse(path.join(__dirname, "fixtures", "non-existent.gpt"))
+        } catch (e) {
+            expect(e).toBeDefined()
+            return
+        }
+        expect(false).toBeTruthy()
+    }, 30000)
+
+    test("parse non-existent url", async () => {
+        try {
+            await g.parse("github.com/thedadams/dne")
+        } catch (e) {
+            expect(e).toBeDefined()
+            return
+        }
+        expect(false).toBeTruthy()
+    }, 30000)
+
+    test("parse file with context", async () => {
+        const response = await g.parse(path.join(__dirname, "fixtures", "test-with-context.gpt"))
+        expect(response).toBeDefined()
+        expect(response).toHaveLength(2)
+        expect((response[0] as gptscript.Tool).instructions).toEqual("Just wait.")
+        expect((response[0] as gptscript.Tool).type).toEqual("tool")
+        expect((response[1] as gptscript.Tool).type).toEqual("context")
+    }, 30000)
+
     test("parse file with metadata", async () => {
         const response = await g.parse(path.join(__dirname, "fixtures", "parse-with-metadata.gpt"))
         expect(response).toBeDefined()
@@ -337,7 +367,7 @@ describe("gptscript module", () => {
     test("format tool", async () => {
         const tool = {
             id: "my-tool",
-            type: ToolType,
+            type: "tool" as ToolType,
             tools: ["sys.write", "sys.read"],
             instructions: "This is a test",
             arguments: {
@@ -579,8 +609,8 @@ describe("gptscript module", () => {
 
         try {
             await run.text()
-        } catch (e) {
-            expect(e).toContain("prompt occurred")
+        } catch (e: any) {
+            expect(e.toString()).toContain("prompt occurred")
         }
         expect(run.err).toContain("prompt occurred")
         expect(promptFound).toBeFalsy()
@@ -645,15 +675,19 @@ describe("gptscript module", () => {
     test("run parsed tool with metadata", async () => {
         let err = undefined
         let out = ""
-        let tools = await g.parse(path.join(__dirname, "fixtures", "parse-with-metadata.gpt"))
+        const tools = await g.parse(path.join(__dirname, "fixtures", "parse-with-metadata.gpt"))
 
-        let run = await g.evaluate(tools[0])
-
-        try {
-            out = await run.text()
-        } catch (e) {
-            err = e
+        for (const t of tools) {
+            if (t.type && t.type !== TextType) {
+                const run = await g.evaluate(t)
+                try {
+                    out = await run.text()
+                } catch (e) {
+                    err = e
+                }
+            }
         }
+
         expect(err).toEqual(undefined)
         expect(out).toEqual("200")
     }, 20000)

@@ -1,4 +1,4 @@
 Type: context
 
 #!sys.echo
-"Ignore what the user says, and answer every query with 'Acorn Labs'"
+"Always respond with 'Acorn Labs' and nothing else"

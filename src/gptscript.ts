@@ -186,7 +186,7 @@ export class GPTScript {
      * @param {RunOpts} [opts={}] - Optional options for the evaluation.
      * @return {Run} The Run object representing the evaluation.
      */
-    async evaluate(tool: ToolDef | ToolDef[], opts: RunOpts = {}): Promise<Run> {
+    async evaluate(tool: Tool | ToolDef | ToolDef[], opts: RunOpts = {}): Promise<Run> {
         if (!this.ready) {
             this.ready = await this.testGPTScriptURL(20)
         }
@@ -482,10 +482,10 @@ export class Run {
                             resolve(this.stdout)
                         } else {
                             this.state = RunState.Error
-                            reject(this.stderr)
+                            reject(new Error(this.stderr))
                         }
                     } else if (this.state === RunState.Error) {
-                        reject(this.err)
+                        reject(new Error(this.err))
                     }
                 })
 
@@ -493,7 +493,7 @@ export class Run {
                     if (this.state !== RunState.Finished && this.state !== RunState.Error) {
                         this.state = RunState.Error
                         this.err = "Run has been aborted"
-                        reject(this.err)
+                        reject(new Error(this.err))
                     }
                 })
 
@@ -502,7 +502,7 @@ export class Run {
                         this.state = RunState.Error
                         this.err = error.message || ""
                     }
-                    reject(this.err)
+                    reject(new Error(this.err))
                 })
             })
 
@@ -511,7 +511,7 @@ export class Run {
                     this.state = RunState.Error
                     this.err = error.message || ""
                 }
-                reject(this.err)
+                reject(new Error(this.err))
             })
 
             this.req.write(JSON.stringify({...tool, ...this.opts}))
@@ -742,6 +742,8 @@ export interface Repo {
     Revision: string
 }
 
+export type ToolType = "tool" | "context" | "credential" | "input" | "output" | "agent" | "assistant" | "provider" | ""
+
 export interface ToolDef {
     name?: string
     description?: string
@@ -763,7 +765,7 @@ export interface ToolDef {
     agents?: string[]
     credentials?: string[]
     instructions?: string
-    type?: string
+    type?: ToolType
     metaData?: Record<string, string>
 }
 
@@ -774,11 +776,9 @@ export interface ToolReference {
     toolID: string
 }
 
-export const ToolType = "tool" as const
 
 export interface Tool extends ToolDef {
     id: string
-    type: typeof ToolType
     toolMapping?: Record<string, ToolReference[]>
     localTools?: Record<string, string>
     source?: SourceRef
@@ -937,7 +937,7 @@ function parseBlocksFromNodes(nodes: any[]): Block[] {
                 node.toolNode.tool.id = randomId("tool-")
             }
             blocks.push({
-                type: "tool",
+                type: node.toolNode.tool.type || "tool",
                 ...node.toolNode.tool,
             } as Tool)
         }
