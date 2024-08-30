@@ -532,7 +532,7 @@ export class Run {
             }).then(res => {
                 resolve(res.stdout)
             }).catch(e => {
-                reject(e)
+                reject(new Error(e))
             })
         })
     }
