@@ -5,6 +5,7 @@ import {fileURLToPath} from "url"
 import {gunzipSync} from "zlib"
 
 export interface GlobalOpts {
+    CacheDir?: string
     APIKey?: string
     BaseURL?: string
     DefaultModel?: string
@@ -46,6 +47,7 @@ export interface RunOpts {
     env?: string[]
     forceSequential?: boolean
 
+    CacheDir?: string
     APIKey?: string
     BaseURL?: string
     DefaultModel?: string
@@ -73,7 +75,7 @@ export class GPTScript {
 
 
     private ready: boolean
-    private opts: GlobalOpts
+    private readonly opts: GlobalOpts
 
     constructor(opts?: GlobalOpts) {
         this.opts = opts || {}
@@ -194,7 +196,6 @@ export class GPTScript {
         if (this.opts.Env) {
             opts.env = this.opts.Env.concat(opts.env || [])
         }
-
         return (new Run("evaluate", tool, {...this.opts, ...opts}, GPTScript.serverURL)).nextChat(opts.input)
     }
 
