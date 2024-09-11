@@ -480,11 +480,11 @@ export class Run {
 
                 res.on("end", () => {
                     if (this.state === RunState.Running || this.state === RunState.Finished || this.state === RunState.Continue) {
-                        if (this.stdout) {
+                        if (this.stdout || !this.stderr) {
                             if (this.state !== RunState.Continue) {
                                 this.state = RunState.Finished
                             }
-                            resolve(this.stdout)
+                            resolve(this.stdout || "")
                         } else {
                             this.state = RunState.Error
                             reject(new Error(this.stderr))

@@ -1,5 +1,5 @@
 import * as gptscript from "../src/gptscript"
-import {ArgumentSchemaType, getEnv, PropertyType, RunEventType, TextType, ToolType} from "../src/gptscript"
+import {ArgumentSchemaType, getEnv, PropertyType, RunEventType, TextType, ToolDef, ToolType} from "../src/gptscript"
 import path from "path"
 import {fileURLToPath} from "url"
 import * as fs from "node:fs"
@@ -83,6 +83,29 @@ describe("gptscript module", () => {
         const run = await g.evaluate(t)
         expect(run).toBeDefined()
         expect(await run.text()).toContain("Calvin Coolidge")
+    })
+
+    test("evaluate executes subtool with empty instructions", async () => {
+        const tools = [
+            {
+                type: "tool",
+                tools: ["new-tool-1"],
+                instructions: "Ask the user for their 'first name'. Then reply hello to the user.",
+            } as ToolDef,
+            {
+                type: "tool",
+                name: "new-tool-1",
+            } as ToolDef,
+        ]
+        const run = await g.evaluate(tools, {
+            input: "{}",
+            disableCache: true,
+            workspace: "",
+            subTool: "new-tool-1",
+        })
+
+        expect(run).toBeDefined()
+        expect(await run.text()).toContain("Understood.")
     })
 
     test("evaluate executes and streams a prompt correctly", async () => {
