@@ -769,6 +769,11 @@ export interface ToolDef {
     export?: string[]
     agents?: string[]
     credentials?: string[]
+    exportCredentials?: string[]
+    inputFilters?: string[]
+    exportInputFilters?: string[]
+    outputFilters?: string[]
+    exportOutputFilters?: string[]
     instructions?: string
     type?: ToolType
     metaData?: Record<string, string>
