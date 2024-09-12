@@ -204,6 +204,7 @@ describe("gptscript module", () => {
         const testGptPath = path.join(__dirname, "fixtures", "global-tools.gpt")
         const opts = {
             disableCache: true,
+            credentialOverrides: ["github.com/gptscript-ai/gateway:OPENAI_API_KEY"]
         }
 
         const run = await g.run(testGptPath, opts)
