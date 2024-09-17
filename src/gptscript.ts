@@ -320,6 +320,70 @@ export class GPTScript {
         return this._load({toolDefs, disableCache, subTool})
     }
 
+    async listCredentials(context: string, allContexts: boolean): Promise<Array<Credential>> {
+        if (!this.ready) {
+            this.ready = await this.testGPTScriptURL(20)
+        }
+        const resp = await fetch(`${GPTScript.serverURL}/credentials`, {
+            method: "POST",
+            body: JSON.stringify({context, allContexts})
+        })
+
+        if (resp.status < 200 || resp.status >= 400) {
+            throw new Error(`Failed to list credentials: ${(await resp.json())["stderr"]}`)
+        }
+
+        const r = await resp.json()
+        return r["stdout"].map((c: any) => jsonToCredential(JSON.stringify(c)))
+    }
+
+    async createCredential(credential: Credential): Promise<void> {
+        if (!this.ready) {
+            this.ready = await this.testGPTScriptURL(20)
+        }
+        const resp = await fetch(`${GPTScript.serverURL}/credentials/create`, {
+            method: "POST",
+            body: JSON.stringify({
+                content: credentialToJSON(credential)
+            })
+        })
+
+        if (resp.status < 200 || resp.status >= 400) {
+            throw new Error(`Failed to create credential: ${(await resp.json())["stderr"]}`)
+        }
+    }
+
+    async revealCredential(context: string, name: string): Promise<Credential> {
+        if (!this.ready) {
+            this.ready = await this.testGPTScriptURL(20)
+        }
+        const resp = await fetch(`${GPTScript.serverURL}/credentials/reveal`, {
+            method: "POST",
+            body: JSON.stringify({context, name})
+        })
+
+        if (resp.status < 200 || resp.status >= 400) {
+            throw new Error(`Failed to reveal credential: ${(await resp.json())["stderr"]}`)
+        }
+
+        const r = await resp.json()
+        return r["stdout"] as Credential
+    }
+
+    async deleteCredential(context: string, name: string): Promise<void> {
+        if (!this.ready) {
+            this.ready = await this.testGPTScriptURL(20)
+        }
+        const resp = await fetch(`${GPTScript.serverURL}/credentials/delete`, {
+            method: "POST",
+            body: JSON.stringify({context, name})
+        })
+
+        if (resp.status < 200 || resp.status >= 400) {
+            throw new Error(`Failed to delete credential: ${(await resp.json())["stderr"]}`)
+        }
+    }
+
     /**
      * Helper method to handle the common logic for loading.
      *
@@ -966,4 +1030,49 @@ function parseBlocksFromNodes(nodes: any[]): Block[] {
 
 function randomId(prefix: string): string {
     return prefix + Math.random().toString(36).substring(2, 12)
+}
+
+export enum CredentialType {
+    Tool = "tool",
+    ModelProvider = "modelProvider",
+}
+
+export type Credential = {
+    context: string
+    name: string
+    type: CredentialType
+    env: Record<string, string>
+    ephemeral: boolean
+    expiresAt?: Date | undefined
+    refreshToken?: string | undefined
+}
+
+// for internal use only
+type cred = {
+    context: string
+    toolName: string
+    type: string
+    env: Record<string, string>
+    ephemeral: boolean
+    expiresAt: string | undefined
+    refreshToken: string | undefined
+}
+
+export function credentialToJSON(c: Credential): string {
+    const expiresAt = c.expiresAt ? c.expiresAt.toISOString() : undefined
+    const type = c.type === CredentialType.Tool ? "tool" : "modelProvider"
+    return JSON.stringify({context: c.context, toolName: c.name, type: type, env: c.env, ephemeral: c.ephemeral, expiresAt: expiresAt, refreshToken: c.refreshToken} as cred)
+}
+
+function jsonToCredential(cred: string): Credential {
+    const c = JSON.parse(cred) as cred
+    return {
+        context: c.context,
+        name: c.toolName,
+        type: c.type === "tool" ? CredentialType.Tool : CredentialType.ModelProvider,
+        env: c.env,
+        ephemeral: c.ephemeral,
+        expiresAt: c.expiresAt ? new Date(c.expiresAt) : undefined,
+        refreshToken: c.refreshToken
+    }
 }
