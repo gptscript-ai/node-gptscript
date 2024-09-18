@@ -554,7 +554,6 @@ export class Run {
                             reject(new Error(this.stderr))
                         }
                     } else if (this.state === RunState.Error) {
-                        console.log(this.err)
                         reject(new Error(this.err))
                     }
                 })
