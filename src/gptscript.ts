@@ -320,7 +320,7 @@ export class GPTScript {
         return this._load({toolDefs, disableCache, subTool})
     }
 
-    async listCredentials(context: string, allContexts: boolean): Promise<Array<Credential>> {
+    async listCredentials(context: Array<string>, allContexts: boolean): Promise<Array<Credential>> {
         if (!this.ready) {
             this.ready = await this.testGPTScriptURL(20)
         }
@@ -353,7 +353,7 @@ export class GPTScript {
         }
     }
 
-    async revealCredential(context: string, name: string): Promise<Credential> {
+    async revealCredential(context: Array<string>, name: string): Promise<Credential> {
         if (!this.ready) {
             this.ready = await this.testGPTScriptURL(20)
         }
@@ -367,7 +367,7 @@ export class GPTScript {
         }
 
         const r = await resp.json()
-        return r["stdout"] as Credential
+        return jsonToCredential(JSON.stringify(r["stdout"]))
     }
 
     async deleteCredential(context: string, name: string): Promise<void> {
@@ -376,7 +376,7 @@ export class GPTScript {
         }
         const resp = await fetch(`${GPTScript.serverURL}/credentials/delete`, {
             method: "POST",
-            body: JSON.stringify({context, name})
+            body: JSON.stringify({context: [context], name})
         })
 
         if (resp.status < 200 || resp.status >= 400) {

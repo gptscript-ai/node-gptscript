@@ -813,23 +813,28 @@ describe("gptscript module", () => {
                 context: "default",
                 env: {"TEST": value},
                 ephemeral: false,
+                expiresAt: new Date(Date.now() + 5000), // 5 seconds from now
                 type: CredentialType.Tool,
             })
         } catch (e) {
             throw new Error("failed to create credential: " + e)
         }
 
+        // Wait 5 seconds
+        await new Promise(resolve => setTimeout(resolve, 5000))
+
         // Reveal
         try {
-            const result = await g.revealCredential("default", name)
+            const result = await g.revealCredential(["default"], name)
             expect(result.env["TEST"]).toEqual(value)
+            expect(result.expiresAt!.valueOf()).toBeLessThan(new Date().valueOf())
         } catch (e) {
             throw new Error("failed to reveal credential: " + e)
         }
 
         // List
         try {
-            const result = await g.listCredentials("default", false)
+            const result = await g.listCredentials(["default"], false)
             expect(result.length).toBeGreaterThan(0)
             expect(result.map(c => c.name)).toContain(name)
         } catch (e) {
@@ -845,10 +850,10 @@ describe("gptscript module", () => {
 
         // Verify deletion
         try {
-            const result = await g.listCredentials("default", false)
+            const result = await g.listCredentials(["default"], false)
             expect(result.map(c => c.name)).not.toContain(name)
         } catch (e) {
             throw new Error("failed to verify deletion: " + e)
         }
-    })
+    }, 20000)
 })
