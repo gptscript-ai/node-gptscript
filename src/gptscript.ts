@@ -324,64 +324,41 @@ export class GPTScript {
         if (!this.ready) {
             this.ready = await this.testGPTScriptURL(20)
         }
-        const resp = await fetch(`${GPTScript.serverURL}/credentials`, {
-            method: "POST",
-            body: JSON.stringify({context, allContexts})
-        })
 
-        if (resp.status < 200 || resp.status >= 400) {
-            throw new Error(`Failed to list credentials: ${(await resp.json())["stderr"]}`)
-        }
-
-        const r = await resp.json()
-        return r["stdout"].map((c: any) => jsonToCredential(JSON.stringify(c)))
+        const r: Run = new RunSubcommand("credentials", "", {}, GPTScript.serverURL)
+        r.request({context, allContexts})
+        const out = await r.json()
+        return out.map((c: any) => jsonToCredential(JSON.stringify(c)))
     }
 
     async createCredential(credential: Credential): Promise<void> {
         if (!this.ready) {
             this.ready = await this.testGPTScriptURL(20)
         }
-        const resp = await fetch(`${GPTScript.serverURL}/credentials/create`, {
-            method: "POST",
-            body: JSON.stringify({
-                content: credentialToJSON(credential)
-            })
-        })
 
-        if (resp.status < 200 || resp.status >= 400) {
-            throw new Error(`Failed to create credential: ${(await resp.json())["stderr"]}`)
-        }
+        const r: Run = new RunSubcommand("credentials/create", "", {}, GPTScript.serverURL)
+        r.request({content: credentialToJSON(credential)})
+        await r.text()
     }
 
     async revealCredential(context: Array<string>, name: string): Promise<Credential> {
         if (!this.ready) {
             this.ready = await this.testGPTScriptURL(20)
         }
-        const resp = await fetch(`${GPTScript.serverURL}/credentials/reveal`, {
-            method: "POST",
-            body: JSON.stringify({context, name})
-        })
 
-        if (resp.status < 200 || resp.status >= 400) {
-            throw new Error(`Failed to reveal credential: ${(await resp.json())["stderr"]}`)
-        }
-
-        const r = await resp.json()
-        return jsonToCredential(JSON.stringify(r["stdout"]))
+        const r: Run = new RunSubcommand("credentials/reveal", "", {}, GPTScript.serverURL)
+        r.request({context, name})
+        return jsonToCredential(await r.text())
     }
 
     async deleteCredential(context: string, name: string): Promise<void> {
         if (!this.ready) {
             this.ready = await this.testGPTScriptURL(20)
         }
-        const resp = await fetch(`${GPTScript.serverURL}/credentials/delete`, {
-            method: "POST",
-            body: JSON.stringify({context: [context], name})
-        })
 
-        if (resp.status < 200 || resp.status >= 400) {
-            throw new Error(`Failed to delete credential: ${(await resp.json())["stderr"]}`)
-        }
+        const r: Run = new RunSubcommand("credentials/delete", "", {}, GPTScript.serverURL)
+        r.request({context: [context], name})
+        await r.text()
     }
 
     /**
