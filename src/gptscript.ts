@@ -43,6 +43,7 @@ export interface RunOpts {
     confirm?: boolean
     prompt?: boolean
     credentialOverrides?: string[]
+    credentialContexts?: string[]
     location?: string
     env?: string[]
     forceSequential?: boolean
