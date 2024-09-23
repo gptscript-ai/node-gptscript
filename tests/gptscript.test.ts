@@ -1,8 +1,18 @@
 import * as gptscript from "../src/gptscript"
-import {ArgumentSchemaType, getEnv, PropertyType, RunEventType, TextType, ToolDef, ToolType} from "../src/gptscript"
+import {
+    ArgumentSchemaType,
+    Credential, CredentialType,
+    getEnv,
+    PropertyType,
+    RunEventType,
+    TextType,
+    ToolDef,
+    ToolType
+} from "../src/gptscript"
 import path from "path"
 import {fileURLToPath} from "url"
 import * as fs from "node:fs"
+import {randomBytes} from "node:crypto";
 
 let gFirst: gptscript.GPTScript
 let g: gptscript.GPTScript
@@ -790,5 +800,60 @@ describe("gptscript module", () => {
 
         expect(err).toEqual(undefined)
         expect(out).toEqual("200")
+    }, 20000)
+
+    test("credential operations", async () => {
+        const name = "test-" + randomBytes(10).toString("hex")
+        const value = randomBytes(10).toString("hex")
+
+        // Create
+        try {
+            await g.createCredential({
+                name: name,
+                context: "default",
+                env: {"TEST": value},
+                ephemeral: false,
+                expiresAt: new Date(Date.now() + 5000), // 5 seconds from now
+                type: CredentialType.Tool,
+            })
+        } catch (e) {
+            throw new Error("failed to create credential: " + e)
+        }
+
+        // Wait 5 seconds
+        await new Promise(resolve => setTimeout(resolve, 5000))
+
+        // Reveal
+        try {
+            const result = await g.revealCredential(["default"], name)
+            expect(result.env["TEST"]).toEqual(value)
+            expect(result.expiresAt!.valueOf()).toBeLessThan(new Date().valueOf())
+        } catch (e) {
+            throw new Error("failed to reveal credential: " + e)
+        }
+
+        // List
+        try {
+            const result = await g.listCredentials(["default"], false)
+            expect(result.length).toBeGreaterThan(0)
+            expect(result.map(c => c.name)).toContain(name)
+        } catch (e) {
+            throw new Error("failed to list credentials: " + e)
+        }
+
+        // Delete
+        try {
+            await g.deleteCredential("default", name)
+        } catch (e) {
+            throw new Error("failed to delete credential: " + e)
+        }
+
+        // Verify deletion
+        try {
+            const result = await g.listCredentials(["default"], false)
+            expect(result.map(c => c.name)).not.toContain(name)
+        } catch (e) {
+            throw new Error("failed to verify deletion: " + e)
+        }
     }, 20000)
 })

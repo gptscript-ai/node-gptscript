@@ -43,6 +43,7 @@ export interface RunOpts {
     confirm?: boolean
     prompt?: boolean
     credentialOverrides?: string[]
+    credentialContexts?: string[]
     location?: string
     env?: string[]
     forceSequential?: boolean
@@ -318,6 +319,47 @@ export class GPTScript {
         subTool?: string
     ): Promise<LoadResponse> {
         return this._load({toolDefs, disableCache, subTool})
+    }
+
+    async listCredentials(context: Array<string>, allContexts: boolean): Promise<Array<Credential>> {
+        if (!this.ready) {
+            this.ready = await this.testGPTScriptURL(20)
+        }
+
+        const r: Run = new RunSubcommand("credentials", "", {}, GPTScript.serverURL)
+        r.request({context, allContexts})
+        const out = await r.json()
+        return out.map((c: any) => jsonToCredential(JSON.stringify(c)))
+    }
+
+    async createCredential(credential: Credential): Promise<void> {
+        if (!this.ready) {
+            this.ready = await this.testGPTScriptURL(20)
+        }
+
+        const r: Run = new RunSubcommand("credentials/create", "", {}, GPTScript.serverURL)
+        r.request({content: credentialToJSON(credential)})
+        await r.text()
+    }
+
+    async revealCredential(context: Array<string>, name: string): Promise<Credential> {
+        if (!this.ready) {
+            this.ready = await this.testGPTScriptURL(20)
+        }
+
+        const r: Run = new RunSubcommand("credentials/reveal", "", {}, GPTScript.serverURL)
+        r.request({context, name})
+        return jsonToCredential(await r.text())
+    }
+
+    async deleteCredential(context: string, name: string): Promise<void> {
+        if (!this.ready) {
+            this.ready = await this.testGPTScriptURL(20)
+        }
+
+        const r: Run = new RunSubcommand("credentials/delete", "", {}, GPTScript.serverURL)
+        r.request({context: [context], name})
+        await r.text()
     }
 
     /**
@@ -966,4 +1008,49 @@ function parseBlocksFromNodes(nodes: any[]): Block[] {
 
 function randomId(prefix: string): string {
     return prefix + Math.random().toString(36).substring(2, 12)
+}
+
+export enum CredentialType {
+    Tool = "tool",
+    ModelProvider = "modelProvider",
+}
+
+export type Credential = {
+    context: string
+    name: string
+    type: CredentialType
+    env: Record<string, string>
+    ephemeral: boolean
+    expiresAt?: Date | undefined
+    refreshToken?: string | undefined
+}
+
+// for internal use only
+type cred = {
+    context: string
+    toolName: string
+    type: string
+    env: Record<string, string>
+    ephemeral: boolean
+    expiresAt: string | undefined
+    refreshToken: string | undefined
+}
+
+export function credentialToJSON(c: Credential): string {
+    const expiresAt = c.expiresAt ? c.expiresAt.toISOString() : undefined
+    const type = c.type === CredentialType.Tool ? "tool" : "modelProvider"
+    return JSON.stringify({context: c.context, toolName: c.name, type: type, env: c.env, ephemeral: c.ephemeral, expiresAt: expiresAt, refreshToken: c.refreshToken} as cred)
+}
+
+function jsonToCredential(cred: string): Credential {
+    const c = JSON.parse(cred) as cred
+    return {
+        context: c.context,
+        name: c.toolName,
+        type: c.type === "tool" ? CredentialType.Tool : CredentialType.ModelProvider,
+        env: c.env,
+        ephemeral: c.ephemeral,
+        expiresAt: c.expiresAt ? new Date(c.expiresAt) : undefined,
+        refreshToken: c.refreshToken
+    }
 }
