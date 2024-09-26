@@ -1,7 +1,7 @@
 import * as gptscript from "../src/gptscript"
 import {
     ArgumentSchemaType,
-    Credential, CredentialType,
+    CredentialType,
     getEnv,
     PropertyType,
     RunEventType,
@@ -12,7 +12,7 @@ import {
 import path from "path"
 import {fileURLToPath} from "url"
 import * as fs from "node:fs"
-import {randomBytes} from "node:crypto";
+import {randomBytes} from "node:crypto"
 
 let gFirst: gptscript.GPTScript
 let g: gptscript.GPTScript
@@ -172,6 +172,17 @@ describe("gptscript module", () => {
         const result = await (await g.run(testGptPath)).text()
         expect(result).toBeDefined()
         expect(result).toContain("Calvin Coolidge")
+
+        // Run it a second time and expect a cached result
+        const run = await g.run(testGptPath)
+        const secondResult = await run.text()
+        expect(result).toBeDefined()
+        expect(secondResult).toStrictEqual(result)
+
+        // There should be one call frame, and it should be cached
+        for (let c in run.calls) {
+            expect(run.calls[c].chatResponseCached).toBeTruthy()
+        }
     })
 
     test("should override credentials correctly", async () => {
@@ -192,6 +203,7 @@ describe("gptscript module", () => {
     test("run executes and stream a file correctly", async () => {
         let out = ""
         let err = undefined
+        let [promptTokens, completionTokens, totalTokens] = [0, 0, 0]
         const testGptPath = path.join(__dirname, "fixtures", "test.gpt")
         const opts = {
             disableCache: true,
@@ -204,8 +216,17 @@ describe("gptscript module", () => {
         await run.text()
         err = run.err
 
+        for (let c in run.calls) {
+            promptTokens += run.calls[c].usage.promptTokens || 0
+            completionTokens += run.calls[c].usage.completionTokens || 0
+            totalTokens += run.calls[c].usage.totalTokens || 0
+        }
+
         expect(out).toContain("Calvin Coolidge")
         expect(err).toEqual("")
+        expect(promptTokens).toBeGreaterThan(0)
+        expect(completionTokens).toBeGreaterThan(0)
+        expect(totalTokens).toBeGreaterThan(0)
     })
 
     test("run executes and streams a file with global tools correctly", async () => {
@@ -273,9 +294,17 @@ describe("gptscript module", () => {
                 instructions: "${question}"
             }
 
-            const response = await (await g.evaluate([t0, t1])).text()
+            const run = await g.evaluate([t0, t1])
+            const response = await run.text()
             expect(response).toBeDefined()
             expect(response).toContain("Calvin Coolidge")
+
+            // In this case, we expect the total number of tool results to be 1
+            let toolResults = 0
+            for (let c in run.calls) {
+                toolResults += run.calls[c].toolResults
+            }
+            expect(toolResults).toStrictEqual(1)
         }, 30000)
 
         test("with sub tool", async () => {

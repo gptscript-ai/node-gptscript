@@ -922,6 +922,8 @@ export interface CallFrame {
     output: Output[]
     error?: string
     usage: Usage
+    chatResponseCached: boolean
+    toolResults: number
     llmRequest?: any
     llmResponse?: any
 }
@@ -1039,7 +1041,15 @@ type cred = {
 export function credentialToJSON(c: Credential): string {
     const expiresAt = c.expiresAt ? c.expiresAt.toISOString() : undefined
     const type = c.type === CredentialType.Tool ? "tool" : "modelProvider"
-    return JSON.stringify({context: c.context, toolName: c.name, type: type, env: c.env, ephemeral: c.ephemeral, expiresAt: expiresAt, refreshToken: c.refreshToken} as cred)
+    return JSON.stringify({
+        context: c.context,
+        toolName: c.name,
+        type: type,
+        env: c.env,
+        ephemeral: c.ephemeral,
+        expiresAt: expiresAt,
+        refreshToken: c.refreshToken
+    } as cred)
 }
 
 function jsonToCredential(cred: string): Credential {
