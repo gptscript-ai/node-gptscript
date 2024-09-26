@@ -83,9 +83,13 @@ export class GPTScript {
         this.ready = false
         GPTScript.instanceCount++
         if (!GPTScript.serverURL) {
-            GPTScript.serverURL = "http://" + (process.env.GPTSCRIPT_URL || "127.0.0.1:0")
+            GPTScript.serverURL = process.env.GPTSCRIPT_URL ?? "http://127.0.0.1:0"
+            if (!GPTScript.serverURL.startsWith("http://") && !GPTScript.serverURL.startsWith("https://")) {
+                GPTScript.serverURL = "http://" + GPTScript.serverURL
+            }
         }
-        if (GPTScript.instanceCount === 1 && process.env.GPTSCRIPT_DISABLE_SERVER !== "true") {
+
+        if (GPTScript.instanceCount === 1 && !process.env.GPTSCRIPT_URL) {
             let env = process.env
             if (this.opts.Env) {
                 env = {
@@ -121,16 +125,25 @@ export class GPTScript {
                 }
 
                 GPTScript.serverURL = `http://${url}`
+                if (!this.opts.Env) {
+                    this.opts.Env = []
+                }
+                this.opts.Env.push(`GPTSCRIPT_URL=${GPTScript.serverURL}`)
 
                 GPTScript.serverProcess.stderr?.removeAllListeners()
             })
+        } else {
+            if (!this.opts.Env) {
+                this.opts.Env = []
+            }
+            this.opts.Env.push("GPTSCRIPT_URL=" + GPTScript.serverURL)
         }
     }
 
     close(): void {
         GPTScript.instanceCount--
         if (GPTScript.instanceCount === 0 && GPTScript.serverProcess) {
-            GPTScript.serverURL = "http://" + (process.env.GPTSCRIPT_URL || "127.0.0.1:0")
+            GPTScript.serverURL = process.env.GPTSCRIPT_URL ?? "http://127.0.0.1:0"
             GPTScript.serverProcess.kill("SIGTERM")
             GPTScript.serverProcess.stdin?.end()
         }
