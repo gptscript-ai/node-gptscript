@@ -139,6 +139,17 @@ export class GPTScript {
             if (!this.opts.URL) {
                 this.opts.URL = GPTScript.serverURL
             }
+
+            if (!this.opts.Env) {
+                this.opts.Env = []
+            }
+            if (this.opts.URL) {
+                this.opts.Env.push(`GPTSCRIPT_URL=${this.opts.URL}`)
+            }
+
+            if (this.opts.Token) {
+                this.opts.Env.push(`GPTSCRIPT_TOKEN=${this.opts.Token}`)
+            }
         }
     }
 
@@ -400,6 +411,14 @@ export class GPTScript {
             try {
                 await fetch(`${GPTScript.serverURL}/healthz`)
                 this.opts.URL = GPTScript.serverURL
+                if (!this.opts.Env) {
+                    this.opts.Env = []
+                }
+                this.opts.Env.push(`GPTSCRIPT_URL=${this.opts.URL}`)
+                if (this.opts.Token) {
+                    this.opts.Env.push(`GPTSCRIPT_TOKEN=${this.opts.Token}`)
+                }
+
                 return
             } catch {
                 if (count === 0) {
