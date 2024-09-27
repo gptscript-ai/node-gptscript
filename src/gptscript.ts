@@ -5,6 +5,8 @@ import {fileURLToPath} from "url"
 import {gunzipSync} from "zlib"
 
 export interface GlobalOpts {
+    URL?: string
+    Token?: string
     CacheDir?: string
     APIKey?: string
     BaseURL?: string
@@ -48,6 +50,8 @@ export interface RunOpts {
     env?: string[]
     forceSequential?: boolean
 
+    URL?: string
+    Token?: string
     CacheDir?: string
     APIKey?: string
     BaseURL?: string
@@ -75,21 +79,24 @@ export class GPTScript {
     private static instanceCount: number = 0
 
 
-    private ready: boolean
     private readonly opts: GlobalOpts
 
     constructor(opts?: GlobalOpts) {
         this.opts = opts || {}
-        this.ready = false
         GPTScript.instanceCount++
+
+        let startSDK = !GPTScript.serverProcess && !GPTScript.serverURL && !this.opts.URL
+
         if (!GPTScript.serverURL) {
-            GPTScript.serverURL = process.env.GPTSCRIPT_URL ?? "http://127.0.0.1:0"
-            if (!GPTScript.serverURL.startsWith("http://") && !GPTScript.serverURL.startsWith("https://")) {
-                GPTScript.serverURL = "http://" + GPTScript.serverURL
-            }
+            GPTScript.serverURL = process.env.GPTSCRIPT_URL ?? ""
+            startSDK = startSDK && !GPTScript.serverURL
         }
 
-        if (GPTScript.instanceCount === 1 && !process.env.GPTSCRIPT_URL) {
+        if (!this.opts.Token) {
+            this.opts.Token = process.env.GPTSCRIPT_TOKEN
+        }
+
+        if (startSDK) {
             let env = process.env
             if (this.opts.Env) {
                 env = {
@@ -113,7 +120,7 @@ export class GPTScript {
                 }
             })
 
-            GPTScript.serverProcess = child_process.spawn(getCmdPath(), ["sys.sdkserver", "--listen-address", GPTScript.serverURL.replace("http://", "")], {
+            GPTScript.serverProcess = child_process.spawn(getCmdPath(), ["sys.sdkserver", "--listen-address", "127.0.0.1:0"], {
                 env: env,
                 stdio: ["pipe", "ignore", "pipe"]
             })
@@ -125,25 +132,31 @@ export class GPTScript {
                 }
 
                 GPTScript.serverURL = `http://${url}`
-                if (!this.opts.Env) {
-                    this.opts.Env = []
-                }
-                this.opts.Env.push(`GPTSCRIPT_URL=${GPTScript.serverURL}`)
 
                 GPTScript.serverProcess.stderr?.removeAllListeners()
             })
         } else {
+            if (!this.opts.URL) {
+                this.opts.URL = GPTScript.serverURL
+            }
+
             if (!this.opts.Env) {
                 this.opts.Env = []
             }
-            this.opts.Env.push("GPTSCRIPT_URL=" + GPTScript.serverURL)
+            if (this.opts.URL) {
+                this.opts.Env.push(`GPTSCRIPT_URL=${this.opts.URL}`)
+            }
+
+            if (this.opts.Token) {
+                this.opts.Env.push(`GPTSCRIPT_TOKEN=${this.opts.Token}`)
+            }
         }
     }
 
     close(): void {
         GPTScript.instanceCount--
         if (GPTScript.instanceCount === 0 && GPTScript.serverProcess) {
-            GPTScript.serverURL = process.env.GPTSCRIPT_URL ?? "http://127.0.0.1:0"
+            GPTScript.serverURL = process.env.GPTSCRIPT_URL ?? ""
             GPTScript.serverProcess.kill("SIGTERM")
             GPTScript.serverProcess.stdin?.end()
         }
@@ -168,10 +181,10 @@ export class GPTScript {
     }
 
     async runBasicCommand(cmd: string, body?: any): Promise<string> {
-        if (!this.ready) {
-            this.ready = await this.testGPTScriptURL(20)
+        if (!this.opts.URL) {
+            await this.testGPTScriptURL(20)
         }
-        const r = new RunSubcommand(cmd, "", {}, GPTScript.serverURL)
+        const r = new RunSubcommand(cmd, "", {URL: this.opts.URL, Token: this.opts.Token})
         r.requestNoStream(body)
         return r.text()
     }
@@ -184,15 +197,14 @@ export class GPTScript {
      * @return {Run} The Run object representing the running tool.
      */
     async run(toolName: string, opts: RunOpts = {}): Promise<Run> {
-        if (!this.ready) {
-            this.ready = await this.testGPTScriptURL(20)
+        if (!this.opts.URL) {
+            await this.testGPTScriptURL(20)
         }
-
         if (this.opts.Env) {
             opts.env = this.opts.Env.concat(opts.env || [])
         }
 
-        return (new Run("run", toolName, {...this.opts, ...opts}, GPTScript.serverURL)).nextChat(opts.input)
+        return (new Run("run", toolName, {...this.opts, ...opts})).nextChat(opts.input)
     }
 
     /**
@@ -203,37 +215,40 @@ export class GPTScript {
      * @return {Run} The Run object representing the evaluation.
      */
     async evaluate(tool: Tool | ToolDef | ToolDef[], opts: RunOpts = {}): Promise<Run> {
-        if (!this.ready) {
-            this.ready = await this.testGPTScriptURL(20)
+        if (!this.opts.URL) {
+            await this.testGPTScriptURL(20)
         }
-
         if (this.opts.Env) {
             opts.env = this.opts.Env.concat(opts.env || [])
         }
-        return (new Run("evaluate", tool, {...this.opts, ...opts}, GPTScript.serverURL)).nextChat(opts.input)
+        return (new Run("evaluate", tool, {...this.opts, ...opts})).nextChat(opts.input)
     }
 
     async parse(fileName: string, disableCache?: boolean): Promise<Block[]> {
-        if (!this.ready) {
-            this.ready = await this.testGPTScriptURL(20)
+        if (!this.opts.URL) {
+            await this.testGPTScriptURL(20)
         }
-        const r: Run = new RunSubcommand("parse", fileName, {disableCache: disableCache}, GPTScript.serverURL)
+        const r: Run = new RunSubcommand("parse", fileName, {
+            disableCache: disableCache,
+            URL: this.opts.URL,
+            Token: this.opts.Token
+        })
         r.request({file: fileName})
         return parseBlocksFromNodes((await r.json()).nodes)
     }
 
     async parseContent(toolContent: string): Promise<Block[]> {
-        if (!this.ready) {
-            this.ready = await this.testGPTScriptURL(20)
+        if (!this.opts.URL) {
+            await this.testGPTScriptURL(20)
         }
-        const r: Run = new RunSubcommand("parse", "", {}, GPTScript.serverURL)
+        const r: Run = new RunSubcommand("parse", "", {URL: this.opts.URL, Token: this.opts.Token})
         r.request({content: toolContent})
         return parseBlocksFromNodes((await r.json()).nodes)
     }
 
     async stringify(blocks: Block[]): Promise<string> {
-        if (!this.ready) {
-            this.ready = await this.testGPTScriptURL(20)
+        if (!this.opts.URL) {
+            await this.testGPTScriptURL(20)
         }
         const nodes: any[] = []
 
@@ -253,16 +268,16 @@ export class GPTScript {
             }
         }
 
-        const r: Run = new RunSubcommand("fmt", "", {}, GPTScript.serverURL)
+        const r: Run = new RunSubcommand("fmt", "", {URL: this.opts.URL, Token: this.opts.Token})
         r.request({nodes: nodes})
         return r.text()
     }
 
     async confirm(response: AuthResponse): Promise<void> {
-        if (!this.ready) {
-            this.ready = await this.testGPTScriptURL(20)
+        if (!this.opts.URL) {
+            await this.testGPTScriptURL(20)
         }
-        const resp = await fetch(`${GPTScript.serverURL}/confirm/${response.id}`, {
+        const resp = await fetch(`${this.opts.URL}/confirm/${response.id}`, {
             method: "POST",
             body: JSON.stringify(response)
         })
@@ -273,10 +288,10 @@ export class GPTScript {
     }
 
     async promptResponse(response: PromptResponse): Promise<void> {
-        if (!this.ready) {
-            this.ready = await this.testGPTScriptURL(20)
+        if (!this.opts.URL) {
+            await this.testGPTScriptURL(20)
         }
-        const resp = await fetch(`${GPTScript.serverURL}/prompt-response/${response.id}`, {
+        const resp = await fetch(`${this.opts.URL}/prompt-response/${response.id}`, {
             method: "POST",
             body: JSON.stringify(response.responses)
         })
@@ -335,42 +350,42 @@ export class GPTScript {
     }
 
     async listCredentials(context: Array<string>, allContexts: boolean): Promise<Array<Credential>> {
-        if (!this.ready) {
-            this.ready = await this.testGPTScriptURL(20)
+        if (!this.opts.URL) {
+            await this.testGPTScriptURL(20)
         }
 
-        const r: Run = new RunSubcommand("credentials", "", {}, GPTScript.serverURL)
+        const r: Run = new RunSubcommand("credentials", "", {URL: this.opts.URL, Token: this.opts.Token})
         r.request({context, allContexts})
         const out = await r.json()
         return out.map((c: any) => jsonToCredential(JSON.stringify(c)))
     }
 
     async createCredential(credential: Credential): Promise<void> {
-        if (!this.ready) {
-            this.ready = await this.testGPTScriptURL(20)
+        if (!this.opts.URL) {
+            await this.testGPTScriptURL(20)
         }
 
-        const r: Run = new RunSubcommand("credentials/create", "", {}, GPTScript.serverURL)
+        const r: Run = new RunSubcommand("credentials/create", "", {URL: this.opts.URL, Token: this.opts.Token})
         r.request({content: credentialToJSON(credential)})
         await r.text()
     }
 
     async revealCredential(context: Array<string>, name: string): Promise<Credential> {
-        if (!this.ready) {
-            this.ready = await this.testGPTScriptURL(20)
+        if (!this.opts.URL) {
+            await this.testGPTScriptURL(20)
         }
 
-        const r: Run = new RunSubcommand("credentials/reveal", "", {}, GPTScript.serverURL)
+        const r: Run = new RunSubcommand("credentials/reveal", "", {URL: this.opts.URL, Token: this.opts.Token})
         r.request({context, name})
         return jsonToCredential(await r.text())
     }
 
     async deleteCredential(context: string, name: string): Promise<void> {
-        if (!this.ready) {
-            this.ready = await this.testGPTScriptURL(20)
+        if (!this.opts.URL) {
+            await this.testGPTScriptURL(20)
         }
 
-        const r: Run = new RunSubcommand("credentials/delete", "", {}, GPTScript.serverURL)
+        const r: Run = new RunSubcommand("credentials/delete", "", {URL: this.opts.URL, Token: this.opts.Token})
         r.request({context: [context], name})
         await r.text()
     }
@@ -382,20 +397,29 @@ export class GPTScript {
      * @return {Promise<LoadResponse>} The loaded program.
      */
     private async _load(payload: any): Promise<LoadResponse> {
-        if (!this.ready) {
-            this.ready = await this.testGPTScriptURL(20)
+        if (!this.opts.URL) {
+            await this.testGPTScriptURL(20)
         }
-        const r: Run = new RunSubcommand("load", payload.toolDefs || [], {}, GPTScript.serverURL)
+        const r: Run = new RunSubcommand("load", payload.toolDefs || [], {URL: this.opts.URL, Token: this.opts.Token})
 
         r.request(payload)
         return (await r.json()) as LoadResponse
     }
 
-    private async testGPTScriptURL(count: number): Promise<boolean> {
+    private async testGPTScriptURL(count: number): Promise<void> {
         while (count > 0) {
             try {
                 await fetch(`${GPTScript.serverURL}/healthz`)
-                return true
+                this.opts.URL = GPTScript.serverURL
+                if (!this.opts.Env) {
+                    this.opts.Env = []
+                }
+                this.opts.Env.push(`GPTSCRIPT_URL=${this.opts.URL}`)
+                if (this.opts.Token) {
+                    this.opts.Env.push(`GPTSCRIPT_TOKEN=${this.opts.Token}`)
+                }
+
+                return
             } catch {
                 if (count === 0) {
                 }
@@ -418,7 +442,6 @@ export class Run {
 
     protected stdout?: string
 
-    private readonly gptscriptURL?: string
     private readonly requestPath: string = ""
     private promise?: Promise<string>
     private req?: http.ClientRequest
@@ -429,13 +452,11 @@ export class Run {
     private prg?: Program
     private respondingToolId?: string
 
-    constructor(subCommand: string, tools: ToolDef | ToolDef[] | string, opts: RunOpts, gptscriptURL?: string) {
+    constructor(subCommand: string, tools: ToolDef | ToolDef[] | string, opts: RunOpts) {
         this.id = randomId("run-")
         this.requestPath = subCommand
         this.opts = opts
         this.tools = tools
-
-        this.gptscriptURL = gptscriptURL
     }
 
     nextChat(input: string = ""): Run {
@@ -445,7 +466,7 @@ export class Run {
 
         let run = this
         if (run.state !== RunState.Creating) {
-            run = new (this.constructor as any)(this.requestPath, this.tools, this.opts, this.gptscriptURL)
+            run = new (this.constructor as any)(this.requestPath, this.tools, this.opts)
         }
 
         if (this.chatState && this.state === RunState.Continue) {
@@ -493,10 +514,10 @@ export class Run {
     }
 
     request(tool: any) {
-        if (!this.gptscriptURL) {
-            throw new Error("request() requires gptscriptURL to be set")
+        if (!this.opts.URL) {
+            throw new Error("request() requires URL to be set")
         }
-        const options = this.requestOptions(this.gptscriptURL, this.requestPath, tool)
+        const options = this.requestOptions(this.opts.URL, this.opts.Token || "", this.requestPath, tool)
         options.headers = {"Transfer-Encoding": "chunked", ...options.headers} as any
 
         this.promise = new Promise<string>(async (resolve, reject) => {
@@ -580,15 +601,15 @@ export class Run {
     }
 
     requestNoStream(tool: any) {
-        if (!this.gptscriptURL) {
+        if (!this.opts.URL) {
             throw new Error("request() requires gptscriptURL to be set")
         }
 
-        const options = this.requestOptions(this.gptscriptURL, this.requestPath, tool) as any
+        const options = this.requestOptions(this.opts.URL, this.opts.Token || "", this.requestPath, tool) as any
         if (tool) {
             options.body = JSON.stringify({...tool, ...this.opts})
         }
-        const req = new Request(this.gptscriptURL + "/" + this.requestPath, options)
+        const req = new Request(this.opts.URL + "/" + this.requestPath, options)
 
         this.promise = new Promise<string>(async (resolve, reject) => {
             fetch(req).then(resp => {
@@ -601,7 +622,7 @@ export class Run {
         })
     }
 
-    requestOptions(gptscriptURL: string, path: string, tool: any) {
+    requestOptions(gptscriptURL: string, token: string, path: string, tool: any) {
         let method = "GET"
         if (tool) {
             method = "POST"
@@ -609,15 +630,20 @@ export class Run {
 
         const url = new URL(gptscriptURL)
 
+        const headers = {
+            "Content-Type": "application/json"
+        } as any
+        if (token) {
+            headers["Authorization"] = `Bearer ${token}`
+        }
+
         return {
             hostname: url.hostname,
             port: url.port || 80,
             protocol: url.protocol || "http:",
             path: "/" + path,
             method: method,
-            headers: {
-                "Content-Type": "application/json"
-            },
+            headers: headers
         }
     }
 
@@ -747,8 +773,8 @@ export class Run {
 }
 
 class RunSubcommand extends Run {
-    constructor(subCommand: string, tool: ToolDef | ToolDef[] | string, opts: RunOpts, gptscriptURL?: string) {
-        super(subCommand, tool, opts, gptscriptURL)
+    constructor(subCommand: string, tool: ToolDef | ToolDef[] | string, opts: RunOpts) {
+        super(subCommand, tool, opts)
     }
 
     processStdout(data: string | object): string {
