@@ -1,7 +1,7 @@
 import * as gptscript from "../src/gptscript"
 import {
     ArgumentSchemaType,
-    CredentialType,
+    CredentialType, Dataset,
     getEnv,
     PropertyType,
     RunEventType,
@@ -13,6 +13,7 @@ import path from "path"
 import {fileURLToPath} from "url"
 import * as fs from "node:fs"
 import {randomBytes} from "node:crypto"
+import {tmpdir} from "node:os";
 
 let gFirst: gptscript.GPTScript
 let g: gptscript.GPTScript
@@ -885,4 +886,82 @@ describe("gptscript module", () => {
             throw new Error("failed to verify deletion: " + e)
         }
     }, 20000)
+
+    test("dataset operations", async () => {
+        const datasetName = "test-" + randomBytes(10).toString("hex")
+        const workspace = fs.mkdtempSync(path.join(tmpdir(), "node-gptscript-"))
+        let datasetID: string
+
+        // Create
+        try {
+            const dataset = await g.createDataset(workspace, datasetName, "a test dataset")
+            expect(dataset).toBeDefined()
+            expect(dataset.name).toEqual(datasetName)
+            expect(dataset.description).toEqual("a test dataset")
+            expect(dataset.id.length).toBeGreaterThan(0)
+            expect(dataset.elements).toEqual({})
+            datasetID = dataset.id
+        } catch (e) {
+            throw new Error("failed to create dataset: " + e)
+        }
+
+        // Add elements
+        try {
+            const e1 = await g.addDatasetElement(
+              workspace,
+              datasetID,
+              "element1",
+              "",
+              "this is element 1 contents"
+            )
+            expect(e1.name).toEqual("element1")
+            expect(e1.description).toEqual("")
+
+            const e2 = await g.addDatasetElement(
+              workspace,
+              datasetID,
+              "element2",
+              "a description",
+              "this is element 2 contents"
+            )
+            expect(e2.name).toEqual("element2")
+            expect(e2.description).toEqual("a description")
+        } catch (e) {
+            throw new Error("failed to add elements: " + e)
+        }
+
+        // Get elements
+        try {
+            const e1 = await g.getDatasetElement(workspace, datasetID, "element1")
+            expect(e1.name).toEqual("element1")
+            expect(e1.description).toBeUndefined()
+            expect(e1.contents).toEqual("this is element 1 contents")
+
+            const e2 = await g.getDatasetElement(workspace, datasetID, "element2")
+            expect(e2.name).toEqual("element2")
+            expect(e2.description).toEqual("a description")
+            expect(e2.contents).toEqual("this is element 2 contents")
+        } catch (e) {
+            throw new Error("failed to get elements: " + e)
+        }
+
+        // List the elements in the dataset
+        try {
+            const elements = await g.listDatasetElements(workspace, datasetID)
+            expect(elements.length).toEqual(2)
+            expect(elements.map(e => e.name)).toContain("element1")
+            expect(elements.map(e => e.name)).toContain("element2")
+        } catch (e) {
+            throw new Error("failed to list elements: " + e)
+        }
+
+        // List datasets
+        try {
+            const datasets = await g.listDatasets(workspace)
+            expect(datasets.length).toBeGreaterThan(0)
+            expect(datasets.map(d => d.name)).toContain(datasetName)
+        } catch (e) {
+            throw new Error("failed to list datasets: " + e)
+        }
+    })
 })

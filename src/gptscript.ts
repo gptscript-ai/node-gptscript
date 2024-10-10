@@ -12,6 +12,7 @@ export interface GlobalOpts {
     BaseURL?: string
     DefaultModel?: string
     DefaultModelProvider?: string
+    DatasetToolRepo?: string
     Env?: string[]
 }
 
@@ -388,6 +389,84 @@ export class GPTScript {
         const r: Run = new RunSubcommand("credentials/delete", "", {URL: this.opts.URL, Token: this.opts.Token})
         r.request({context: [context], name})
         await r.text()
+    }
+
+    // Dataset methods
+
+    async listDatasets(workspace: string): Promise<Array<DatasetMeta>> {
+        if (workspace == "") {
+            workspace = process.env.GPTSCRIPT_WORKSPACE_DIR ?? ""
+        }
+
+        const r: Run = new RunSubcommand("datasets", "", {URL: this.opts.URL, Token: this.opts.Token})
+        r.request({input: "{}", workspace: workspace, datasetToolRepo: this.opts.DatasetToolRepo ?? ""})
+        const result = await r.text()
+        return JSON.parse(result) as Array<DatasetMeta>
+    }
+
+    async createDataset(workspace: string, name: string, description: string): Promise<Dataset> {
+        if (workspace == "") {
+            workspace = process.env.GPTSCRIPT_WORKSPACE_DIR ?? ""
+        }
+
+        const r: Run = new RunSubcommand("datasets/create", "", {URL: this.opts.URL, Token: this.opts.Token})
+        r.request({
+            input: JSON.stringify({datasetName: name, datasetDescription: description}),
+            workspace: workspace,
+            datasetToolRepo: this.opts.DatasetToolRepo ?? ""
+        })
+        const result = await r.text()
+        return JSON.parse(result) as Dataset
+    }
+
+    async addDatasetElement(workspace: string, datasetID: string, elementName: string, elementDescription: string, elementContent: string): Promise<DatasetElementMeta> {
+        if (workspace == "") {
+            workspace = process.env.GPTSCRIPT_WORKSPACE_DIR ?? ""
+        }
+
+        const r: Run = new RunSubcommand("datasets/add-element", "", {URL: this.opts.URL, Token: this.opts.Token})
+        r.request({
+            input: JSON.stringify({
+                datasetID,
+                elementName,
+                elementDescription,
+                elementContent
+            }),
+            workspace: workspace,
+            datasetToolRepo: this.opts.DatasetToolRepo ?? ""
+        })
+        const result = await r.text()
+        return JSON.parse(result) as DatasetElementMeta
+    }
+
+    async listDatasetElements(workspace: string, datasetID: string): Promise<Array<DatasetElementMeta>> {
+        if (workspace == "") {
+            workspace = process.env.GPTSCRIPT_WORKSPACE_DIR ?? ""
+        }
+
+        const r: Run = new RunSubcommand("datasets/list-elements", "", {URL: this.opts.URL, Token: this.opts.Token})
+        r.request({
+            input: JSON.stringify({datasetID}),
+            workspace: workspace,
+            datasetToolRepo: this.opts.DatasetToolRepo ?? ""
+        })
+        const result = await r.text()
+        return JSON.parse(result) as Array<DatasetElementMeta>
+    }
+
+    async getDatasetElement(workspace: string, datasetID: string, elementName: string): Promise<DatasetElement> {
+        if (workspace == "") {
+            workspace = process.env.GPTSCRIPT_WORKSPACE_DIR ?? ""
+        }
+
+        const r: Run = new RunSubcommand("datasets/get-element", "", {URL: this.opts.URL, Token: this.opts.Token})
+        r.request({
+            input: JSON.stringify({datasetID, element: elementName}),
+            workspace: workspace,
+            datasetToolRepo: this.opts.DatasetToolRepo ?? ""
+        })
+        const result = await r.text()
+        return JSON.parse(result) as DatasetElement
     }
 
     /**
@@ -1102,4 +1181,26 @@ function jsonToCredential(cred: string): Credential {
         expiresAt: c.expiresAt ? new Date(c.expiresAt) : undefined,
         refreshToken: c.refreshToken
     }
+}
+
+// Dataset types
+
+export type DatasetElementMeta = {
+    name: string
+    description: string
+}
+
+export type DatasetElement = DatasetElementMeta & {
+    contents: string
+}
+
+export type DatasetMeta = {
+    id: string
+    name: string
+    description: string
+}
+
+export type Dataset = DatasetMeta & {
+    baseDir: string
+    elements: Record<string, DatasetElementMeta>
 }
