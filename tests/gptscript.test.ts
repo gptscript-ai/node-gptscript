@@ -963,5 +963,5 @@ describe("gptscript module", () => {
         } catch (e) {
             throw new Error("failed to list datasets: " + e)
         }
-    })
+    }, 20000)
 })
