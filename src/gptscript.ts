@@ -1185,22 +1185,26 @@ function jsonToCredential(cred: string): Credential {
 
 // Dataset types
 
-export type DatasetElementMeta = {
+export interface DatasetElementMeta {
     name: string
     description: string
 }
 
-export type DatasetElement = DatasetElementMeta & {
+export interface DatasetElement {
+    name: string
+    description: string
     contents: string
 }
 
-export type DatasetMeta = {
+export interface DatasetMeta {
     id: string
     name: string
     description: string
 }
 
-export type Dataset = DatasetMeta & {
-    baseDir: string
+export interface Dataset {
+    id: string
+    name: string
+    description: string
     elements: Record<string, DatasetElementMeta>
 }
