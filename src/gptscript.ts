@@ -401,6 +401,9 @@ export class GPTScript {
         const r: Run = new RunSubcommand("datasets", "", {URL: this.opts.URL, Token: this.opts.Token})
         r.request({input: "{}", workspace: workspace, datasetToolRepo: this.opts.DatasetToolRepo ?? ""})
         const result = await r.text()
+        if (result.startsWith("ERROR:")) {
+            throw new Error(result)
+        }
         return JSON.parse(result) as Array<DatasetMeta>
     }
 
@@ -416,6 +419,9 @@ export class GPTScript {
             datasetToolRepo: this.opts.DatasetToolRepo ?? ""
         })
         const result = await r.text()
+        if (result.startsWith("ERROR:")) {
+            throw new Error(result)
+        }
         return JSON.parse(result) as Dataset
     }
 
@@ -436,6 +442,9 @@ export class GPTScript {
             datasetToolRepo: this.opts.DatasetToolRepo ?? ""
         })
         const result = await r.text()
+        if (result.startsWith("ERROR:")) {
+            throw new Error(result)
+        }
         return JSON.parse(result) as DatasetElementMeta
     }
 
@@ -451,6 +460,9 @@ export class GPTScript {
             datasetToolRepo: this.opts.DatasetToolRepo ?? ""
         })
         const result = await r.text()
+        if (result.startsWith("ERROR:")) {
+            throw new Error(result)
+        }
         return JSON.parse(result) as Array<DatasetElementMeta>
     }
 
@@ -466,6 +478,9 @@ export class GPTScript {
             datasetToolRepo: this.opts.DatasetToolRepo ?? ""
         })
         const result = await r.text()
+        if (result.startsWith("ERROR:")) {
+            throw new Error(result)
+        }
         return JSON.parse(result) as DatasetElement
     }
 
