@@ -13,6 +13,7 @@ export interface GlobalOpts {
     DefaultModel?: string
     DefaultModelProvider?: string
     DatasetToolRepo?: string
+    WorkspaceTool?: string
     Env?: string[]
 }
 
@@ -140,9 +141,12 @@ export class GPTScript {
             if (!this.opts.URL) {
                 this.opts.URL = GPTScript.serverURL
             }
+            if (this.opts.URL !== "" && !this.opts.URL.startsWith("http://") && !this.opts.URL.startsWith("https://")) {
+                this.opts.URL = "http://" + this.opts.URL
+            }
 
             if (!this.opts.Env) {
-                this.opts.Env = []
+                this.opts.Env = Object.entries(process.env).map(([k, v]) => `${k}=${v}`)
             }
             if (this.opts.URL) {
                 this.opts.Env.push(`GPTSCRIPT_URL=${this.opts.URL}`)
@@ -467,6 +471,90 @@ export class GPTScript {
         })
         const result = await r.text()
         return JSON.parse(result) as DatasetElement
+    }
+
+    async createWorkspace(providerType: string, ...fromWorkspaces: string[]): Promise<string> {
+        const out = await this.runBasicCommand("workspaces/create", {
+            providerType: providerType,
+            fromWorkspaceIDs: fromWorkspaces,
+            workspaceTool: this.opts.WorkspaceTool,
+            env: this.opts.Env,
+        })
+        return out.trim()
+    }
+
+    async deleteWorkspace(workspaceID?: string): Promise<void> {
+        if (!workspaceID) {
+            workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
+        }
+        await this.runBasicCommand("workspaces/delete", {
+            id: workspaceID,
+            workspaceTool: this.opts.WorkspaceTool,
+            env: this.opts.Env,
+        })
+    }
+
+    async listFilesInWorkspace(prefix?: string, workspaceID?: string): Promise<Array<string>> {
+        if (!workspaceID) {
+            workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
+        }
+        const out = await this.runBasicCommand("workspaces/list", {
+            id: workspaceID,
+            prefix: prefix,
+            workspaceTool: this.opts.WorkspaceTool,
+            env: this.opts.Env,
+        })
+        return JSON.parse(out)
+    }
+
+    async removeAll(withPrefix?: string, workspaceID?: string): Promise<void> {
+        if (!workspaceID) {
+            workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
+        }
+        await this.runBasicCommand("workspaces/remove-all-with-prefix", {
+            id: workspaceID,
+            prefix: withPrefix,
+            workspaceTool: this.opts.WorkspaceTool,
+            env: this.opts.Env,
+        })
+    }
+
+    async writeFileInWorkspace(filePath: string, content: ArrayBuffer, workspaceID?: string): Promise<void> {
+        if (!workspaceID) {
+            workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
+        }
+        await this.runBasicCommand("workspaces/write-file", {
+            id: workspaceID,
+            filePath: filePath,
+            contents: Buffer.from(content).toString("base64"),
+            workspaceTool: this.opts.WorkspaceTool,
+            env: this.opts.Env,
+        })
+    }
+
+    async deleteFileInWorkspace(filePath: string, workspaceID?: string): Promise<void> {
+        if (!workspaceID) {
+            workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
+        }
+        await this.runBasicCommand("workspaces/delete-file", {
+            id: workspaceID,
+            filePath: filePath,
+            workspaceTool: this.opts.WorkspaceTool,
+            env: this.opts.Env,
+        })
+    }
+
+    async readFileInWorkspace(filePath: string, workspaceID?: string): Promise<ArrayBuffer> {
+        if (!workspaceID) {
+            workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
+        }
+        const out = await this.runBasicCommand("workspaces/read-file", {
+            id: workspaceID,
+            filePath: filePath,
+            workspaceTool: this.opts.WorkspaceTool,
+            env: this.opts.Env,
+        })
+        return Buffer.from(out.trim(), "base64")
     }
 
     /**

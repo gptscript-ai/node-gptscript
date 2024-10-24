@@ -1,7 +1,7 @@
 import * as gptscript from "../src/gptscript"
 import {
     ArgumentSchemaType,
-    CredentialType, Dataset,
+    CredentialType,
     getEnv,
     PropertyType,
     RunEventType,
@@ -13,7 +13,7 @@ import path from "path"
 import {fileURLToPath} from "url"
 import * as fs from "node:fs"
 import {randomBytes} from "node:crypto"
-import {tmpdir} from "node:os";
+import {tmpdir} from "node:os"
 
 let gFirst: gptscript.GPTScript
 let g: gptscript.GPTScript
@@ -908,21 +908,21 @@ describe("gptscript module", () => {
         // Add elements
         try {
             const e1 = await g.addDatasetElement(
-              workspace,
-              datasetID,
-              "element1",
-              "",
-              "this is element 1 contents"
+                workspace,
+                datasetID,
+                "element1",
+                "",
+                "this is element 1 contents"
             )
             expect(e1.name).toEqual("element1")
             expect(e1.description).toEqual("")
 
             const e2 = await g.addDatasetElement(
-              workspace,
-              datasetID,
-              "element2",
-              "a description",
-              "this is element 2 contents"
+                workspace,
+                datasetID,
+                "element2",
+                "a description",
+                "this is element 2 contents"
             )
             expect(e2.name).toEqual("element2")
             expect(e2.description).toEqual("a description")
@@ -963,5 +963,114 @@ describe("gptscript module", () => {
         } catch (e) {
             throw new Error("failed to list datasets: " + e)
         }
-    }, 20000)
+    }, 60000)
+
+    test("create and delete workspace", async () => {
+        if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+            console.log("AWS credentials not set, skipping test")
+            return
+        }
+
+        const workspaceID = await g.createWorkspace("directory")
+        expect(workspaceID).toBeDefined()
+        await g.deleteWorkspace(workspaceID)
+    }, 60000)
+
+    test("write, read, and delete file", async () => {
+        if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+            console.log("AWS credentials not set, skipping test")
+            return
+        }
+
+        const workspaceID = await g.createWorkspace("directory")
+        expect(workspaceID).toBeDefined()
+
+        await g.writeFileInWorkspace("test.txt", Buffer.from("test"), workspaceID)
+        const content = await g.readFileInWorkspace("test.txt", workspaceID)
+        expect(content.toString()).toEqual("test")
+        await g.deleteWorkspace(workspaceID)
+    }, 60000)
+
+    test("test complex ls", async () => {
+        if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+            console.log("AWS credentials not set, skipping test")
+            return
+        }
+
+        const workspaceID = await g.createWorkspace("directory")
+
+        // Write files in the workspace
+        await g.writeFileInWorkspace("test/test1.txt", Buffer.from("hello1"), workspaceID)
+        await g.writeFileInWorkspace("test1/test2.txt", Buffer.from("hello2"), workspaceID)
+        await g.writeFileInWorkspace("test1/test3.txt", Buffer.from("hello3"), workspaceID)
+        await g.writeFileInWorkspace(".hidden.txt", Buffer.from("hidden"), workspaceID)
+
+        let content = await g.listFilesInWorkspace(undefined, workspaceID)
+        expect(content.length).toEqual(4)
+        expect(content).toContain("test1/test2.txt")
+        expect(content).toContain("test1/test3.txt")
+        expect(content).toContain("test/test1.txt")
+        expect(content).toContain(".hidden.txt")
+
+        content = await g.listFilesInWorkspace("test1", workspaceID)
+        expect(content.length).toEqual(2)
+        expect(content).toContain("test1/test2.txt")
+        expect(content).toContain("test1/test3.txt")
+
+        await g.removeAll("test1", workspaceID)
+
+        content = await g.listFilesInWorkspace("", workspaceID)
+        expect(content.length).toEqual(2)
+        expect(content).toContain("test/test1.txt")
+        expect(content).toContain(".hidden.txt")
+
+        await g.deleteWorkspace(workspaceID)
+    }, 60000)
+
+    test("create and delete workspace in s3", async () => {
+        const workspaceID = await g.createWorkspace("s3")
+        expect(workspaceID).toBeDefined()
+        await g.deleteWorkspace(workspaceID)
+    }, 60000)
+
+    test("write, read, and delete file in s3", async () => {
+        const workspaceID = await g.createWorkspace("s3")
+        expect(workspaceID).toBeDefined()
+
+        await g.writeFileInWorkspace("test.txt", Buffer.from("test"), workspaceID)
+        const content = await g.readFileInWorkspace("test.txt", workspaceID)
+        expect(content.toString()).toEqual("test")
+        await g.deleteWorkspace(workspaceID)
+    }, 60000)
+
+    test("test complex ls in s3", async () => {
+        const workspaceID = await g.createWorkspace("s3")
+
+        // Write files in the workspace
+        await g.writeFileInWorkspace("test/test1.txt", Buffer.from("hello1"), workspaceID)
+        await g.writeFileInWorkspace("test1/test2.txt", Buffer.from("hello2"), workspaceID)
+        await g.writeFileInWorkspace("test1/test3.txt", Buffer.from("hello3"), workspaceID)
+        await g.writeFileInWorkspace(".hidden.txt", Buffer.from("hidden"), workspaceID)
+
+        let content = await g.listFilesInWorkspace(undefined, workspaceID)
+        expect(content.length).toEqual(4)
+        expect(content).toContain("test1/test2.txt")
+        expect(content).toContain("test1/test3.txt")
+        expect(content).toContain("test/test1.txt")
+        expect(content).toContain(".hidden.txt")
+
+        content = await g.listFilesInWorkspace("test1", workspaceID)
+        expect(content.length).toEqual(2)
+        expect(content).toContain("test1/test2.txt")
+        expect(content).toContain("test1/test3.txt")
+
+        await g.removeAll("test1", workspaceID)
+
+        content = await g.listFilesInWorkspace("", workspaceID)
+        expect(content.length).toEqual(2)
+        expect(content).toContain("test/test1.txt")
+        expect(content).toContain(".hidden.txt")
+
+        await g.deleteWorkspace(workspaceID)
+    }, 60000)
 })
