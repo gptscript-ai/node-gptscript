@@ -388,79 +388,78 @@ export class GPTScript {
 
     // Dataset methods
 
-    async listDatasets(workspace: string): Promise<Array<DatasetMeta>> {
-        if (workspace == "") {
-            workspace = process.env.GPTSCRIPT_WORKSPACE_DIR ?? ""
+    async listDatasets(workspaceID: string): Promise<Array<DatasetMeta>> {
+        if (workspaceID == "") {
+            workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
         }
 
-        const r: Run = new RunSubcommand("datasets", "", {URL: this.opts.URL, Token: this.opts.Token})
-        r.request({input: "{}", workspace: workspace, datasetToolRepo: this.opts.DatasetToolRepo ?? ""})
-        const result = await r.text()
+        const result = await this.runBasicCommand("datasets", {
+            workspaceID: workspaceID,
+            datasetToolRepo: this.opts.DatasetToolRepo ?? "",
+            env: this.opts.Env
+        })
         return JSON.parse(result) as Array<DatasetMeta>
     }
 
-    async createDataset(workspace: string, name: string, description: string): Promise<Dataset> {
-        if (workspace == "") {
-            workspace = process.env.GPTSCRIPT_WORKSPACE_DIR ?? ""
+    async createDataset(workspaceID: string, name: string, description: string): Promise<Dataset> {
+        if (workspaceID == "") {
+            workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
         }
 
-        const r: Run = new RunSubcommand("datasets/create", "", {URL: this.opts.URL, Token: this.opts.Token})
-        r.request({
+        const result = await this.runBasicCommand("datasets/create", {
             input: JSON.stringify({datasetName: name, datasetDescription: description}),
-            workspace: workspace,
-            datasetToolRepo: this.opts.DatasetToolRepo ?? ""
+            workspaceID: workspaceID,
+            datasetToolRepo: this.opts.DatasetToolRepo ?? "",
+            env: this.opts.Env
         })
-        const result = await r.text()
         return JSON.parse(result) as Dataset
     }
 
-    async addDatasetElement(workspace: string, datasetID: string, elementName: string, elementDescription: string, elementContent: string): Promise<DatasetElementMeta> {
-        if (workspace == "") {
-            workspace = process.env.GPTSCRIPT_WORKSPACE_DIR ?? ""
+    async addDatasetElement(workspaceID: string, datasetID: string, elementName: string, elementDescription: string, elementContent: string): Promise<DatasetElementMeta> {
+        if (workspaceID == "") {
+            workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
         }
 
-        const r: Run = new RunSubcommand("datasets/add-element", "", {URL: this.opts.URL, Token: this.opts.Token})
-        r.request({
+        const result = await this.runBasicCommand("datasets/add-element", {
             input: JSON.stringify({
                 datasetID,
-                elementName,
-                elementDescription,
-                elementContent
+                elementName: elementName,
+                elementDescription: elementDescription,
+                elementContent: elementContent
             }),
-            workspace: workspace,
-            datasetToolRepo: this.opts.DatasetToolRepo ?? ""
+            workspaceID: workspaceID,
+            datasetToolRepo: this.opts.DatasetToolRepo ?? "",
+            env: this.opts.Env
         })
-        const result = await r.text()
         return JSON.parse(result) as DatasetElementMeta
     }
 
-    async listDatasetElements(workspace: string, datasetID: string): Promise<Array<DatasetElementMeta>> {
-        if (workspace == "") {
-            workspace = process.env.GPTSCRIPT_WORKSPACE_DIR ?? ""
+    async listDatasetElements(workspaceID: string, datasetID: string): Promise<Array<DatasetElementMeta>> {
+        if (workspaceID == "") {
+            workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
         }
 
-        const r: Run = new RunSubcommand("datasets/list-elements", "", {URL: this.opts.URL, Token: this.opts.Token})
-        r.request({
+
+        const result = await this.runBasicCommand("datasets/list-elements", {
             input: JSON.stringify({datasetID}),
-            workspace: workspace,
-            datasetToolRepo: this.opts.DatasetToolRepo ?? ""
+            workspaceID: workspaceID,
+            datasetToolRepo: this.opts.DatasetToolRepo ?? "",
+            env: this.opts.Env
         })
-        const result = await r.text()
         return JSON.parse(result) as Array<DatasetElementMeta>
     }
 
-    async getDatasetElement(workspace: string, datasetID: string, elementName: string): Promise<DatasetElement> {
-        if (workspace == "") {
-            workspace = process.env.GPTSCRIPT_WORKSPACE_DIR ?? ""
+    async getDatasetElement(workspaceID: string, datasetID: string, elementName: string): Promise<DatasetElement> {
+        if (workspaceID == "") {
+            workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
         }
 
-        const r: Run = new RunSubcommand("datasets/get-element", "", {URL: this.opts.URL, Token: this.opts.Token})
-        r.request({
+        const result = await this.runBasicCommand("datasets/get-element", {
             input: JSON.stringify({datasetID, element: elementName}),
-            workspace: workspace,
-            datasetToolRepo: this.opts.DatasetToolRepo ?? ""
+            workspaceID: workspaceID,
+            datasetToolRepo: this.opts.DatasetToolRepo ?? "",
+            env: this.opts.Env
         })
-        const result = await r.text()
         return JSON.parse(result) as DatasetElement
     }
 
