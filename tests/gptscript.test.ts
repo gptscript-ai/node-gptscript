@@ -13,7 +13,6 @@ import path from "path"
 import {fileURLToPath} from "url"
 import * as fs from "node:fs"
 import {randomBytes} from "node:crypto"
-import {tmpdir} from "node:os"
 
 let gFirst: gptscript.GPTScript
 let g: gptscript.GPTScript
@@ -660,7 +659,7 @@ describe("gptscript module", () => {
             tools: ["sys.exec"]
         }
 
-        const commands = [`"ls"`, `"dir"`]
+        const commands = [`ls`, `dir`]
         let confirmCallCount = 0
         const run = await g.evaluate(t, {confirm: true})
         run.on(gptscript.RunEventType.CallConfirm, async (data: gptscript.CallFrame) => {
@@ -683,7 +682,7 @@ describe("gptscript module", () => {
         }
         const run = await g.evaluate(t, {confirm: true})
         run.on(gptscript.RunEventType.CallConfirm, async (data: gptscript.CallFrame) => {
-            expect(data.input).toContain(`"ls"`)
+            expect(data.input).toContain(`ls`)
             confirmFound = true
             await g.confirm({id: data.id, accept: false, message: "I will not allow it!"})
         })
@@ -889,12 +888,12 @@ describe("gptscript module", () => {
 
     test("dataset operations", async () => {
         const datasetName = "test-" + randomBytes(10).toString("hex")
-        const workspace = fs.mkdtempSync(path.join(tmpdir(), "node-gptscript-"))
+        const workspaceID = await g.createWorkspace("directory")
         let datasetID: string
 
         // Create
         try {
-            const dataset = await g.createDataset(workspace, datasetName, "a test dataset")
+            const dataset = await g.createDataset(workspaceID, datasetName, "a test dataset")
             expect(dataset).toBeDefined()
             expect(dataset.name).toEqual(datasetName)
             expect(dataset.description).toEqual("a test dataset")
@@ -908,7 +907,7 @@ describe("gptscript module", () => {
         // Add elements
         try {
             const e1 = await g.addDatasetElement(
-                workspace,
+                workspaceID,
                 datasetID,
                 "element1",
                 "",
@@ -918,7 +917,7 @@ describe("gptscript module", () => {
             expect(e1.description).toEqual("")
 
             const e2 = await g.addDatasetElement(
-                workspace,
+                workspaceID,
                 datasetID,
                 "element2",
                 "a description",
@@ -932,12 +931,12 @@ describe("gptscript module", () => {
 
         // Get elements
         try {
-            const e1 = await g.getDatasetElement(workspace, datasetID, "element1")
+            const e1 = await g.getDatasetElement(workspaceID, datasetID, "element1")
             expect(e1.name).toEqual("element1")
             expect(e1.description).toBeUndefined()
             expect(e1.contents).toEqual("this is element 1 contents")
 
-            const e2 = await g.getDatasetElement(workspace, datasetID, "element2")
+            const e2 = await g.getDatasetElement(workspaceID, datasetID, "element2")
             expect(e2.name).toEqual("element2")
             expect(e2.description).toEqual("a description")
             expect(e2.contents).toEqual("this is element 2 contents")
@@ -947,7 +946,7 @@ describe("gptscript module", () => {
 
         // List the elements in the dataset
         try {
-            const elements = await g.listDatasetElements(workspace, datasetID)
+            const elements = await g.listDatasetElements(workspaceID, datasetID)
             expect(elements.length).toEqual(2)
             expect(elements.map(e => e.name)).toContain("element1")
             expect(elements.map(e => e.name)).toContain("element2")
@@ -957,7 +956,7 @@ describe("gptscript module", () => {
 
         // List datasets
         try {
-            const datasets = await g.listDatasets(workspace)
+            const datasets = await g.listDatasets(workspaceID)
             expect(datasets.length).toBeGreaterThan(0)
             expect(datasets.map(d => d.name)).toContain(datasetName)
         } catch (e) {
@@ -966,22 +965,12 @@ describe("gptscript module", () => {
     }, 60000)
 
     test("create and delete workspace", async () => {
-        if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-            console.log("AWS credentials not set, skipping test")
-            return
-        }
-
         const workspaceID = await g.createWorkspace("directory")
         expect(workspaceID).toBeDefined()
         await g.deleteWorkspace(workspaceID)
     }, 60000)
 
     test("write, read, and delete file", async () => {
-        if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-            console.log("AWS credentials not set, skipping test")
-            return
-        }
-
         const workspaceID = await g.createWorkspace("directory")
         expect(workspaceID).toBeDefined()
 
@@ -992,11 +981,6 @@ describe("gptscript module", () => {
     }, 60000)
 
     test("test complex ls", async () => {
-        if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-            console.log("AWS credentials not set, skipping test")
-            return
-        }
-
         const workspaceID = await g.createWorkspace("directory")
 
         // Write files in the workspace
@@ -1028,12 +1012,22 @@ describe("gptscript module", () => {
     }, 60000)
 
     test("create and delete workspace in s3", async () => {
+        if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+            console.log("AWS credentials not set, skipping test")
+            return
+        }
+
         const workspaceID = await g.createWorkspace("s3")
         expect(workspaceID).toBeDefined()
         await g.deleteWorkspace(workspaceID)
     }, 60000)
 
     test("write, read, and delete file in s3", async () => {
+        if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+            console.log("AWS credentials not set, skipping test")
+            return
+        }
+
         const workspaceID = await g.createWorkspace("s3")
         expect(workspaceID).toBeDefined()
 
@@ -1044,6 +1038,11 @@ describe("gptscript module", () => {
     }, 60000)
 
     test("test complex ls in s3", async () => {
+        if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+            console.log("AWS credentials not set, skipping test")
+            return
+        }
+
         const workspaceID = await g.createWorkspace("s3")
 
         // Write files in the workspace
