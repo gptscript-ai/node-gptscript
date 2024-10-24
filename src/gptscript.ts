@@ -366,33 +366,24 @@ export class GPTScript {
     }
 
     async createCredential(credential: Credential): Promise<void> {
-        if (!this.opts.URL) {
-            await this.testGPTScriptURL(20)
-        }
-
-        const r: Run = new RunSubcommand("credentials/create", "", {URL: this.opts.URL, Token: this.opts.Token})
-        r.request({content: credentialToJSON(credential)})
-        await r.text()
+        await this.runBasicCommand("credentials/create", {
+            content: credentialToJSON(credential)
+        })
     }
 
     async revealCredential(context: Array<string>, name: string): Promise<Credential> {
-        if (!this.opts.URL) {
-            await this.testGPTScriptURL(20)
-        }
-
-        const r: Run = new RunSubcommand("credentials/reveal", "", {URL: this.opts.URL, Token: this.opts.Token})
-        r.request({context, name})
-        return jsonToCredential(await r.text())
+        const resp = await this.runBasicCommand("credentials/reveal", {
+            context,
+            name
+        })
+        return jsonToCredential(resp)
     }
 
     async deleteCredential(context: string, name: string): Promise<void> {
-        if (!this.opts.URL) {
-            await this.testGPTScriptURL(20)
-        }
-
-        const r: Run = new RunSubcommand("credentials/delete", "", {URL: this.opts.URL, Token: this.opts.Token})
-        r.request({context: [context], name})
-        await r.text()
+        await this.runBasicCommand("credentials/delete", {
+            context: [context],
+            name
+        })
     }
 
     // Dataset methods
@@ -782,7 +773,10 @@ export class Run {
             fetch(req).then(resp => {
                 return resp.json()
             }).then(res => {
-                resolve(res.stdout)
+                if (typeof res.stdout === "string") {
+                    resolve(res.stdout)
+                }
+                resolve(JSON.stringify(res.stdout))
             }).catch(e => {
                 reject(new Error(e))
             })
