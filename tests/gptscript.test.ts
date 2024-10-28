@@ -977,6 +977,14 @@ describe("gptscript module", () => {
         await g.writeFileInWorkspace("test.txt", Buffer.from("test"), workspaceID)
         const content = await g.readFileInWorkspace("test.txt", workspaceID)
         expect(content.toString()).toEqual("test")
+
+        const fileInfo = await g.statFileInWorkspace("test.txt", workspaceID)
+        expect(fileInfo.size).toEqual(4)
+        expect(fileInfo.name).toEqual("test.txt")
+        expect(fileInfo.workspaceID).toEqual(workspaceID)
+        expect(fileInfo.modTime).toBeDefined()
+
+        await g.deleteFileInWorkspace("test.txt", workspaceID)
         await g.deleteWorkspace(workspaceID)
     }, 60000)
 
@@ -1034,6 +1042,14 @@ describe("gptscript module", () => {
         await g.writeFileInWorkspace("test.txt", Buffer.from("test"), workspaceID)
         const content = await g.readFileInWorkspace("test.txt", workspaceID)
         expect(content.toString()).toEqual("test")
+
+        const fileInfo = await g.statFileInWorkspace("test.txt", workspaceID)
+        expect(fileInfo.size).toEqual(4)
+        expect(fileInfo.name).toEqual("test.txt")
+        expect(fileInfo.workspaceID).toEqual(workspaceID)
+        expect(fileInfo.modTime).toBeDefined()
+
+        await g.deleteFileInWorkspace("test.txt", workspaceID)
         await g.deleteWorkspace(workspaceID)
     }, 60000)
 
