@@ -548,6 +548,20 @@ export class GPTScript {
         return Buffer.from(out.trim(), "base64")
     }
 
+    async statFileInWorkspace(filePath: string, workspaceID?: string): Promise<FileInfo> {
+        if (!workspaceID) {
+            workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
+        }
+        const out = await this.runBasicCommand("workspaces/stat-file", {
+            id: workspaceID,
+            filePath: filePath,
+            workspaceTool: this.opts.WorkspaceTool,
+            env: this.opts.Env,
+        })
+
+        return JSON.parse(out)
+    }
+
     /**
      * Helper method to handle the common logic for loading.
      *
@@ -588,6 +602,13 @@ export class GPTScript {
 
         throw new Error("Failed to wait for gptscript to be ready")
     }
+}
+
+export interface FileInfo {
+    workspaceID: string
+    name: string
+    size: number
+    modTime: string
 }
 
 export class Run {
