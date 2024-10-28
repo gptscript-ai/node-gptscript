@@ -473,10 +473,11 @@ export class GPTScript {
         return out.trim()
     }
 
-    async deleteWorkspace(workspaceID?: string): Promise<void> {
+    async deleteWorkspace(workspaceID: string): Promise<void> {
         if (!workspaceID) {
-            workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
+            return Promise.reject("workspace ID cannot be empty")
         }
+
         await this.runBasicCommand("workspaces/delete", {
             id: workspaceID,
             workspaceTool: this.opts.WorkspaceTool,
