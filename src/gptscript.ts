@@ -434,6 +434,19 @@ export class GPTScript {
         return JSON.parse(result) as DatasetElementMeta
     }
 
+    async addDatasetElements(workspaceID: string, datasetID: string, elements: Array<DatasetElement>) {
+        if (workspaceID === "") {
+            workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
+        }
+
+        return await this.runBasicCommand("datasets/add-elements", {
+            input: JSON.stringify({datasetID, elements}),
+            workspaceID: workspaceID,
+            datasetToolRepo: this.opts.DatasetToolRepo ?? "",
+            env: this.opts.Env,
+        })
+    }
+
     async listDatasetElements(workspaceID: string, datasetID: string): Promise<Array<DatasetElementMeta>> {
         if (workspaceID == "") {
             workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
