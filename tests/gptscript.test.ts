@@ -929,6 +929,28 @@ describe("gptscript module", () => {
             throw new Error("failed to add elements: " + e)
         }
 
+        // Add two elements at once.
+        try {
+            await g.addDatasetElements(
+              workspaceID,
+              datasetID,
+              [
+                {
+                  name: "element3",
+                  description: "a description",
+                  contents: "this is element 3 contents"
+                },
+                {
+                  name: "element4",
+                  description: "a description",
+                  contents: "this is element 4 contents"
+                }
+              ]
+            )
+        } catch (e) {
+            throw new Error("failed to add elements: " + e)
+        }
+
         // Get elements
         try {
             const e1 = await g.getDatasetElement(workspaceID, datasetID, "element1")
@@ -940,6 +962,16 @@ describe("gptscript module", () => {
             expect(e2.name).toEqual("element2")
             expect(e2.description).toEqual("a description")
             expect(e2.contents).toEqual("this is element 2 contents")
+
+            const e3 = await g.getDatasetElement(workspaceID, datasetID, "element3")
+            expect(e3.name).toEqual("element3")
+            expect(e3.description).toEqual("a description")
+            expect(e3.contents).toEqual("this is element 3 contents")
+
+            const e4 = await g.getDatasetElement(workspaceID, datasetID, "element4")
+            expect(e4.name).toEqual("element4")
+            expect(e4.description).toEqual("a description")
+            expect(e4.contents).toEqual("this is element 4 contents")
         } catch (e) {
             throw new Error("failed to get elements: " + e)
         }
@@ -947,9 +979,11 @@ describe("gptscript module", () => {
         // List the elements in the dataset
         try {
             const elements = await g.listDatasetElements(workspaceID, datasetID)
-            expect(elements.length).toEqual(2)
+            expect(elements.length).toEqual(4)
             expect(elements.map(e => e.name)).toContain("element1")
             expect(elements.map(e => e.name)).toContain("element2")
+            expect(elements.map(e => e.name)).toContain("element3")
+            expect(elements.map(e => e.name)).toContain("element4")
         } catch (e) {
             throw new Error("failed to list elements: " + e)
         }
