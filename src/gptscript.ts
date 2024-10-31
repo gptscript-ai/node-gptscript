@@ -415,7 +415,7 @@ export class GPTScript {
         return JSON.parse(result) as Dataset
     }
 
-    async addDatasetElement(workspaceID: string, datasetID: string, elementName: string, elementDescription: string, elementContent: string): Promise<DatasetElementMeta> {
+    async addDatasetElement(workspaceID: string, datasetID: string, elementName: string, elementDescription: string, elementContent: ArrayBuffer): Promise<DatasetElementMeta> {
         if (workspaceID == "") {
             workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
         }
@@ -425,7 +425,7 @@ export class GPTScript {
                 datasetID,
                 elementName: elementName,
                 elementDescription: elementDescription,
-                elementContent: elementContent
+                elementContent: Buffer.from(elementContent).toString("base64")
             }),
             workspaceID: workspaceID,
             datasetToolRepo: this.opts.DatasetToolRepo ?? "",
@@ -439,8 +439,16 @@ export class GPTScript {
             workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
         }
 
+        const serializableElements = elements.map(e => {
+            return {
+                name: e.name,
+                description: e.description,
+                contents: Buffer.from(e.contents).toString("base64")
+            }
+        })
+
         return await this.runBasicCommand("datasets/add-elements", {
-            input: JSON.stringify({datasetID, elements}),
+            input: JSON.stringify({datasetID, elements: serializableElements}),
             workspaceID: workspaceID,
             datasetToolRepo: this.opts.DatasetToolRepo ?? "",
             env: this.opts.Env,
@@ -451,7 +459,6 @@ export class GPTScript {
         if (workspaceID == "") {
             workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
         }
-
 
         const result = await this.runBasicCommand("datasets/list-elements", {
             input: JSON.stringify({datasetID}),
@@ -473,7 +480,13 @@ export class GPTScript {
             datasetToolRepo: this.opts.DatasetToolRepo ?? "",
             env: this.opts.Env
         })
-        return JSON.parse(result) as DatasetElement
+
+        const element = JSON.parse(result)
+        return {
+            name: element.name,
+            description: element.description,
+            contents: Buffer.from(element.contents, "base64")
+        }
     }
 
     async createWorkspace(providerType: string, ...fromWorkspaces: string[]): Promise<string> {
@@ -1309,7 +1322,7 @@ export interface DatasetElementMeta {
 export interface DatasetElement {
     name: string
     description: string
-    contents: string
+    contents: ArrayBuffer
 }
 
 export interface DatasetMeta {
