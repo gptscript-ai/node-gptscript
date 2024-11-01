@@ -911,7 +911,7 @@ describe("gptscript module", () => {
                 datasetID,
                 "element1",
                 "",
-                "this is element 1 contents"
+                Buffer.from("this is element 1 contents")
             )
             expect(e1.name).toEqual("element1")
             expect(e1.description).toEqual("")
@@ -921,7 +921,7 @@ describe("gptscript module", () => {
                 datasetID,
                 "element2",
                 "a description",
-                "this is element 2 contents"
+                Buffer.from("this is element 2 contents")
             )
             expect(e2.name).toEqual("element2")
             expect(e2.description).toEqual("a description")
@@ -938,12 +938,12 @@ describe("gptscript module", () => {
                 {
                   name: "element3",
                   description: "a description",
-                  contents: "this is element 3 contents"
+                  contents: Buffer.from("this is element 3 contents")
                 },
                 {
                   name: "element4",
                   description: "a description",
-                  contents: "this is element 4 contents"
+                  contents: Buffer.from("this is element 4 contents")
                 }
               ]
             )
@@ -956,22 +956,22 @@ describe("gptscript module", () => {
             const e1 = await g.getDatasetElement(workspaceID, datasetID, "element1")
             expect(e1.name).toEqual("element1")
             expect(e1.description).toBeUndefined()
-            expect(e1.contents).toEqual("this is element 1 contents")
+            expect(e1.contents).toEqual(Buffer.from("this is element 1 contents"))
 
             const e2 = await g.getDatasetElement(workspaceID, datasetID, "element2")
             expect(e2.name).toEqual("element2")
             expect(e2.description).toEqual("a description")
-            expect(e2.contents).toEqual("this is element 2 contents")
+            expect(e2.contents).toEqual(Buffer.from("this is element 2 contents"))
 
             const e3 = await g.getDatasetElement(workspaceID, datasetID, "element3")
             expect(e3.name).toEqual("element3")
             expect(e3.description).toEqual("a description")
-            expect(e3.contents).toEqual("this is element 3 contents")
+            expect(e3.contents).toEqual(Buffer.from("this is element 3 contents"))
 
             const e4 = await g.getDatasetElement(workspaceID, datasetID, "element4")
             expect(e4.name).toEqual("element4")
             expect(e4.description).toEqual("a description")
-            expect(e4.contents).toEqual("this is element 4 contents")
+            expect(e4.contents).toEqual(Buffer.from("this is element 4 contents"))
         } catch (e) {
             throw new Error("failed to get elements: " + e)
         }
