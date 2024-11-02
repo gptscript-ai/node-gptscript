@@ -960,7 +960,7 @@ export class Run {
                 }
             } else if ((f.type as string).startsWith("call")) {
                 f = f as CallFrame
-                if (!f.parentID && this.parentCallId === "") {
+                if (!f.parentID && this.parentCallId === "" && (f.toolCategory || ToolCategory.NoCategory) === ToolCategory.NoCategory) {
                     this.parentCallId = f.id
                 }
                 this.calls[f.id] = f
