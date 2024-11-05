@@ -433,8 +433,6 @@ export class GPTScript {
             env: this.opts.Env
         })
 
-        console.log(result)
-
         const element = JSON.parse(result)
         return {
             name: element.name,
