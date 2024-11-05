@@ -887,12 +887,17 @@ describe("gptscript module", () => {
     }, 20000)
 
     test("dataset operations", async () => {
-        process.env.GPTSCRIPT_WORKSPACE_ID = await g.createWorkspace("directory")
+        const workspaceID = await g.createWorkspace("directory")
+        const client = new gptscript.GPTScript({
+            APIKey: process.env.OPENAI_API_KEY,
+            Env: ["GPTSCRIPT_WORKSPACE_ID=" + workspaceID]
+        })
+
         let datasetID: string
 
         // Create and add two elements
         try {
-            datasetID = await g.addDatasetElements([
+            datasetID = await client.addDatasetElements([
                 {
                     name: "element1",
                     description: "",
@@ -903,37 +908,37 @@ describe("gptscript module", () => {
                     description: "a description",
                     binaryContents: Buffer.from("this is element 2 contents")
                 }
-            ])
+            ], {name: "test-dataset", description: "a test dataset"})
         } catch (e) {
             throw new Error("failed to create dataset: " + e)
         }
 
         // Add another element
         try {
-            await g.addDatasetElements([
+            await client.addDatasetElements([
                 {
                     name: "element3",
                     description: "a description",
                     contents: "this is element 3 contents"
                 }
-            ], datasetID)
+            ], {datasetID: datasetID})
         } catch (e) {
             throw new Error("failed to add elements: " + e)
         }
 
         // Get elements
         try {
-            const e1 = await g.getDatasetElement(datasetID, "element1")
+            const e1 = await client.getDatasetElement(datasetID, "element1")
             expect(e1.name).toEqual("element1")
             expect(e1.description).toEqual("")
             expect(e1.contents).toEqual("this is element 1 contents")
 
-            const e2 = await g.getDatasetElement(datasetID, "element2")
+            const e2 = await client.getDatasetElement(datasetID, "element2")
             expect(e2.name).toEqual("element2")
             expect(e2.description).toEqual("a description")
             expect(e2.binaryContents).toEqual(Buffer.from("this is element 2 contents"))
 
-            const e3 = await g.getDatasetElement(datasetID, "element3")
+            const e3 = await client.getDatasetElement(datasetID, "element3")
             expect(e3.name).toEqual("element3")
             expect(e3.description).toEqual("a description")
             expect(e3.contents).toEqual("this is element 3 contents")
@@ -943,7 +948,7 @@ describe("gptscript module", () => {
 
         // List the elements in the dataset
         try {
-            const elements = await g.listDatasetElements(datasetID)
+            const elements = await client.listDatasetElements(datasetID)
             expect(elements.length).toEqual(3)
             expect(elements.map(e => e.name)).toContain("element1")
             expect(elements.map(e => e.name)).toContain("element2")
@@ -954,9 +959,11 @@ describe("gptscript module", () => {
 
         // List datasets
         try {
-            const datasets = await g.listDatasets()
+            const datasets = await client.listDatasets()
             expect(datasets.length).toBeGreaterThan(0)
-            expect(datasets).toContain(datasetID)
+            expect(datasets[0].id).toEqual(datasetID)
+            expect(datasets[0].name).toEqual("test-dataset")
+            expect(datasets[0].description).toEqual("a test dataset")
         } catch (e) {
             throw new Error("failed to list datasets: " + e)
         }

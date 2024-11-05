@@ -387,16 +387,16 @@ export class GPTScript {
     }
 
     // returns an array of dataset IDs
-    async listDatasets(): Promise<Array<string>> {
+    async listDatasets(): Promise<Array<DatasetMeta>> {
         const result = await this.runBasicCommand("datasets", {
-            input: JSON.stringify({"workspaceID": process.env.GPTSCRIPT_WORKSPACE_ID}),
+            input: "{}",
             datasetTool: this.opts.DatasetTool ?? "",
             env: this.opts.Env
         })
-        return JSON.parse(result) as Array<string>
+        return JSON.parse(result) as Array<DatasetMeta>
     }
 
-    async addDatasetElements(elements: Array<DatasetElement>, datasetID?: string) {
+    async addDatasetElements(elements: Array<DatasetElement>, opts: {name?: string, description?: string, datasetID?: string}): Promise<string> {
         const serializableElements = elements.map(e => {
             return {
                 name: e.name,
@@ -408,18 +408,19 @@ export class GPTScript {
 
         return await this.runBasicCommand("datasets/add-elements", {
             input: JSON.stringify({
-                workspaceID: process.env.GPTSCRIPT_WORKSPACE_ID,
-                datasetID: datasetID ?? "",
+                name: opts.name ?? "",
+                description: opts.description ?? "",
+                datasetID: opts.datasetID ?? "",
                 elements: serializableElements
             }),
             datasetTool: this.opts.DatasetTool ?? "",
-            env: this.opts.Env,
+            env: this.opts.Env
         })
     }
 
     async listDatasetElements(datasetID: string): Promise<Array<DatasetElementMeta>> {
         const result = await this.runBasicCommand("datasets/list-elements", {
-            input: JSON.stringify({workspaceID: process.env.GPTSCRIPT_WORKSPACE_ID, datasetID}),
+            input: JSON.stringify({datasetID}),
             datasetTool: this.opts.DatasetTool ?? "",
             env: this.opts.Env
         })
@@ -428,7 +429,7 @@ export class GPTScript {
 
     async getDatasetElement(datasetID: string, elementName: string): Promise<DatasetElement> {
         const result = await this.runBasicCommand("datasets/get-element", {
-            input: JSON.stringify({workspaceID: process.env.GPTSCRIPT_WORKSPACE_ID, datasetID, name: elementName}),
+            input: JSON.stringify({datasetID, name: elementName}),
             datasetTool: this.opts.DatasetTool ?? "",
             env: this.opts.Env
         })
@@ -1263,6 +1264,12 @@ function jsonToCredential(cred: string): Credential {
         expiresAt: c.expiresAt ? new Date(c.expiresAt) : undefined,
         refreshToken: c.refreshToken
     }
+}
+
+export interface DatasetMeta {
+    id: string
+    name: string
+    description: string
 }
 
 export interface DatasetElementMeta {
