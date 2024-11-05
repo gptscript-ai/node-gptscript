@@ -12,7 +12,7 @@ export interface GlobalOpts {
     BaseURL?: string
     DefaultModel?: string
     DefaultModelProvider?: string
-    DatasetToolRepo?: string
+    DatasetTool?: string
     WorkspaceTool?: string
     Env?: string[]
 }
@@ -386,106 +386,61 @@ export class GPTScript {
         })
     }
 
-    // Dataset methods
-
-    async listDatasets(workspaceID: string): Promise<Array<DatasetMeta>> {
-        if (workspaceID == "") {
-            workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
-        }
-
+    // returns an array of dataset IDs
+    async listDatasets(): Promise<Array<string>> {
         const result = await this.runBasicCommand("datasets", {
-            workspaceID: workspaceID,
-            datasetToolRepo: this.opts.DatasetToolRepo ?? "",
+            input: JSON.stringify({"workspaceID": process.env.GPTSCRIPT_WORKSPACE_ID}),
+            datasetTool: this.opts.DatasetTool ?? "",
             env: this.opts.Env
         })
-        return JSON.parse(result) as Array<DatasetMeta>
+        return JSON.parse(result) as Array<string>
     }
 
-    async createDataset(workspaceID: string, name: string, description: string): Promise<Dataset> {
-        if (workspaceID == "") {
-            workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
-        }
-
-        const result = await this.runBasicCommand("datasets/create", {
-            input: JSON.stringify({datasetName: name, datasetDescription: description}),
-            workspaceID: workspaceID,
-            datasetToolRepo: this.opts.DatasetToolRepo ?? "",
-            env: this.opts.Env
-        })
-        return JSON.parse(result) as Dataset
-    }
-
-    async addDatasetElement(workspaceID: string, datasetID: string, elementName: string, elementDescription: string, elementContent: ArrayBuffer): Promise<DatasetElementMeta> {
-        if (workspaceID == "") {
-            workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
-        }
-
-        const result = await this.runBasicCommand("datasets/add-element", {
-            input: JSON.stringify({
-                datasetID,
-                elementName: elementName,
-                elementDescription: elementDescription,
-                elementContent: Buffer.from(elementContent).toString("base64")
-            }),
-            workspaceID: workspaceID,
-            datasetToolRepo: this.opts.DatasetToolRepo ?? "",
-            env: this.opts.Env
-        })
-        return JSON.parse(result) as DatasetElementMeta
-    }
-
-    async addDatasetElements(workspaceID: string, datasetID: string, elements: Array<DatasetElement>) {
-        if (workspaceID === "") {
-            workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
-        }
-
+    async addDatasetElements(elements: Array<DatasetElement>, datasetID?: string) {
         const serializableElements = elements.map(e => {
             return {
                 name: e.name,
                 description: e.description,
-                contents: Buffer.from(e.contents).toString("base64")
+                contents: e.contents,
+                binaryContents: Buffer.from(e.binaryContents ?? Buffer.from("")).toString("base64")
             }
         })
 
         return await this.runBasicCommand("datasets/add-elements", {
-            input: JSON.stringify({datasetID, elements: serializableElements}),
-            workspaceID: workspaceID,
-            datasetToolRepo: this.opts.DatasetToolRepo ?? "",
+            input: JSON.stringify({
+                workspaceID: process.env.GPTSCRIPT_WORKSPACE_ID,
+                datasetID: datasetID ?? "",
+                elements: serializableElements
+            }),
+            datasetTool: this.opts.DatasetTool ?? "",
             env: this.opts.Env,
         })
     }
 
-    async listDatasetElements(workspaceID: string, datasetID: string): Promise<Array<DatasetElementMeta>> {
-        if (workspaceID == "") {
-            workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
-        }
-
+    async listDatasetElements(datasetID: string): Promise<Array<DatasetElementMeta>> {
         const result = await this.runBasicCommand("datasets/list-elements", {
-            input: JSON.stringify({datasetID}),
-            workspaceID: workspaceID,
-            datasetToolRepo: this.opts.DatasetToolRepo ?? "",
+            input: JSON.stringify({workspaceID: process.env.GPTSCRIPT_WORKSPACE_ID, datasetID}),
+            datasetTool: this.opts.DatasetTool ?? "",
             env: this.opts.Env
         })
         return JSON.parse(result) as Array<DatasetElementMeta>
     }
 
-    async getDatasetElement(workspaceID: string, datasetID: string, elementName: string): Promise<DatasetElement> {
-        if (workspaceID == "") {
-            workspaceID = process.env.GPTSCRIPT_WORKSPACE_ID ?? ""
-        }
-
+    async getDatasetElement(datasetID: string, elementName: string): Promise<DatasetElement> {
         const result = await this.runBasicCommand("datasets/get-element", {
-            input: JSON.stringify({datasetID, element: elementName}),
-            workspaceID: workspaceID,
-            datasetToolRepo: this.opts.DatasetToolRepo ?? "",
+            input: JSON.stringify({workspaceID: process.env.GPTSCRIPT_WORKSPACE_ID, datasetID, name: elementName}),
+            datasetTool: this.opts.DatasetTool ?? "",
             env: this.opts.Env
         })
+
+        console.log(result)
 
         const element = JSON.parse(result)
         return {
             name: element.name,
             description: element.description,
-            contents: Buffer.from(element.contents, "base64")
+            contents: element.contents,
+            binaryContents: Buffer.from(element.binaryContents, "base64")
         }
     }
 
@@ -1312,8 +1267,6 @@ function jsonToCredential(cred: string): Credential {
     }
 }
 
-// Dataset types
-
 export interface DatasetElementMeta {
     name: string
     description: string
@@ -1322,18 +1275,6 @@ export interface DatasetElementMeta {
 export interface DatasetElement {
     name: string
     description: string
-    contents: ArrayBuffer
-}
-
-export interface DatasetMeta {
-    id: string
-    name: string
-    description: string
-}
-
-export interface Dataset {
-    id: string
-    name: string
-    description: string
-    elements: Record<string, DatasetElementMeta>
+    contents?: string
+    binaryContents?: ArrayBuffer
 }
