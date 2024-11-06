@@ -439,7 +439,7 @@ export class GPTScript {
             name: element.name,
             description: element.description,
             contents: element.contents,
-            binaryContents: Buffer.from(element.binaryContents, "base64")
+            binaryContents: Buffer.from(element.binaryContents ?? "", "base64")
         }
     }
 

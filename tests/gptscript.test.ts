@@ -931,7 +931,7 @@ describe("gptscript module", () => {
         try {
             const e1 = await client.getDatasetElement(datasetID, "element1")
             expect(e1.name).toEqual("element1")
-            expect(e1.description).toEqual("")
+            expect(e1.description).toBeUndefined()
             expect(e1.contents).toEqual("this is element 1 contents")
 
             const e2 = await client.getDatasetElement(datasetID, "element2")
