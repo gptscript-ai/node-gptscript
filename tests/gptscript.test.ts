@@ -887,10 +887,11 @@ describe("gptscript module", () => {
     }, 20000)
 
     test("dataset operations", async () => {
-        const workspaceID = await g.createWorkspace("directory")
+        process.env.GPTSCRIPT_WORKSPACE_ID = await g.createWorkspace("directory")
+
         const client = new gptscript.GPTScript({
             APIKey: process.env.OPENAI_API_KEY,
-            Env: ["GPTSCRIPT_WORKSPACE_ID=" + workspaceID]
+            Env: Object.entries(process.env).map(([k, v]) => `${k}=${v}`)
         })
 
         let datasetID: string
