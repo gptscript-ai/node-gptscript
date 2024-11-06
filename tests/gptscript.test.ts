@@ -887,112 +887,84 @@ describe("gptscript module", () => {
     }, 20000)
 
     test("dataset operations", async () => {
-        const datasetName = "test-" + randomBytes(10).toString("hex")
-        const workspaceID = await g.createWorkspace("directory")
+        process.env.GPTSCRIPT_WORKSPACE_ID = await g.createWorkspace("directory")
+
+        const client = new gptscript.GPTScript({
+            APIKey: process.env.OPENAI_API_KEY,
+            Env: Object.entries(process.env).map(([k, v]) => `${k}=${v}`)
+        })
+
         let datasetID: string
 
-        // Create
+        // Create and add two elements
         try {
-            const dataset = await g.createDataset(workspaceID, datasetName, "a test dataset")
-            expect(dataset).toBeDefined()
-            expect(dataset.name).toEqual(datasetName)
-            expect(dataset.description).toEqual("a test dataset")
-            expect(dataset.id.length).toBeGreaterThan(0)
-            expect(dataset.elements).toEqual({})
-            datasetID = dataset.id
+            datasetID = await client.addDatasetElements([
+                {
+                    name: "element1",
+                    description: "",
+                    contents: "this is element 1 contents"
+                },
+                {
+                    name: "element2",
+                    description: "a description",
+                    binaryContents: Buffer.from("this is element 2 contents")
+                }
+            ], {name: "test-dataset", description: "a test dataset"})
         } catch (e) {
             throw new Error("failed to create dataset: " + e)
         }
 
-        // Add elements
+        // Add another element
         try {
-            const e1 = await g.addDatasetElement(
-                workspaceID,
-                datasetID,
-                "element1",
-                "",
-                Buffer.from("this is element 1 contents")
-            )
-            expect(e1.name).toEqual("element1")
-            expect(e1.description).toEqual("")
-
-            const e2 = await g.addDatasetElement(
-                workspaceID,
-                datasetID,
-                "element2",
-                "a description",
-                Buffer.from("this is element 2 contents")
-            )
-            expect(e2.name).toEqual("element2")
-            expect(e2.description).toEqual("a description")
-        } catch (e) {
-            throw new Error("failed to add elements: " + e)
-        }
-
-        // Add two elements at once.
-        try {
-            await g.addDatasetElements(
-              workspaceID,
-              datasetID,
-              [
+            await client.addDatasetElements([
                 {
-                  name: "element3",
-                  description: "a description",
-                  contents: Buffer.from("this is element 3 contents")
-                },
-                {
-                  name: "element4",
-                  description: "a description",
-                  contents: Buffer.from("this is element 4 contents")
+                    name: "element3",
+                    description: "a description",
+                    contents: "this is element 3 contents"
                 }
-              ]
-            )
+            ], {datasetID: datasetID})
         } catch (e) {
             throw new Error("failed to add elements: " + e)
         }
 
         // Get elements
         try {
-            const e1 = await g.getDatasetElement(workspaceID, datasetID, "element1")
+            const e1 = await client.getDatasetElement(datasetID, "element1")
             expect(e1.name).toEqual("element1")
             expect(e1.description).toBeUndefined()
-            expect(e1.contents).toEqual(Buffer.from("this is element 1 contents"))
+            expect(e1.contents).toEqual("this is element 1 contents")
 
-            const e2 = await g.getDatasetElement(workspaceID, datasetID, "element2")
+            const e2 = await client.getDatasetElement(datasetID, "element2")
             expect(e2.name).toEqual("element2")
             expect(e2.description).toEqual("a description")
-            expect(e2.contents).toEqual(Buffer.from("this is element 2 contents"))
+            expect(e2.binaryContents).toEqual(Buffer.from("this is element 2 contents"))
 
-            const e3 = await g.getDatasetElement(workspaceID, datasetID, "element3")
+            const e3 = await client.getDatasetElement(datasetID, "element3")
             expect(e3.name).toEqual("element3")
             expect(e3.description).toEqual("a description")
-            expect(e3.contents).toEqual(Buffer.from("this is element 3 contents"))
-
-            const e4 = await g.getDatasetElement(workspaceID, datasetID, "element4")
-            expect(e4.name).toEqual("element4")
-            expect(e4.description).toEqual("a description")
-            expect(e4.contents).toEqual(Buffer.from("this is element 4 contents"))
+            expect(e3.contents).toEqual("this is element 3 contents")
         } catch (e) {
             throw new Error("failed to get elements: " + e)
         }
 
         // List the elements in the dataset
         try {
-            const elements = await g.listDatasetElements(workspaceID, datasetID)
-            expect(elements.length).toEqual(4)
+            const elements = await client.listDatasetElements(datasetID)
+            expect(elements.length).toEqual(3)
             expect(elements.map(e => e.name)).toContain("element1")
             expect(elements.map(e => e.name)).toContain("element2")
             expect(elements.map(e => e.name)).toContain("element3")
-            expect(elements.map(e => e.name)).toContain("element4")
         } catch (e) {
             throw new Error("failed to list elements: " + e)
         }
 
         // List datasets
         try {
-            const datasets = await g.listDatasets(workspaceID)
+            const datasets = await client.listDatasets()
             expect(datasets.length).toBeGreaterThan(0)
-            expect(datasets.map(d => d.name)).toContain(datasetName)
+            expect(datasets[0].id).toEqual(datasetID)
+            expect(datasets[0].name).toEqual("test-dataset")
+            expect(datasets[0].description).toEqual("a test dataset")
         } catch (e) {
             throw new Error("failed to list datasets: " + e)
         }
