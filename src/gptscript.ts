@@ -3,6 +3,7 @@ import path from "path"
 import child_process from "child_process"
 import {fileURLToPath} from "url"
 import {gunzipSync} from "zlib"
+import https from "https"
 
 export interface GlobalOpts {
     URL?: string
@@ -1282,4 +1283,49 @@ export interface DatasetElement {
     description: string
     contents?: string
     binaryContents?: ArrayBuffer
+}
+
+// Functions for use in daemon tools:
+
+export function createServer(listener: http.RequestListener<typeof http.IncomingMessage, typeof http.ServerResponse>): https.Server {
+    const certB64 = process.env.CERT
+    const privateKeyB64 = process.env.PRIVATE_KEY
+    const gptscriptCertB64 = process.env.GPTSCRIPT_CERT
+
+    if (!certB64) {
+        console.log('Missing CERT env var')
+        process.exit(1)
+    } else if (!privateKeyB64) {
+        console.log('Missing PRIVATE_KEY env var')
+        process.exit(1)
+    } else if (!gptscriptCertB64) {
+        console.log('Missing GPTSCRIPT_CERT env var')
+        process.exit(1)
+    }
+
+    const cert = Buffer.from(certB64, 'base64').toString('utf-8')
+    const privateKey = Buffer.from(privateKeyB64, 'base64').toString('utf-8')
+    const gptscriptCert = Buffer.from(gptscriptCertB64, 'base64').toString('utf-8')
+
+    const options = {
+        key: privateKey,
+        cert: cert,
+        ca: gptscriptCert,
+        requestCert: true,
+        rejectUnauthorized: true,
+    }
+
+    return https.createServer(options, listener)
+}
+
+export function startServer(server: https.Server) {
+    const port = process.env.PORT
+    if (!port) {
+        console.log('Missing PORT env var')
+        process.exit(1)
+    }
+
+    server.listen(port, () => {
+        console.log(`Server listening on port ${port}`)
+    })
 }
