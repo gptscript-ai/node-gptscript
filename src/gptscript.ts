@@ -1325,7 +1325,7 @@ export function startServer(server: https.Server) {
         process.exit(1)
     }
 
-    server.listen(port, () => {
+    server.listen(parseInt(port, 10), '127.0.0.1', () => {
         console.log(`Server listening on port ${port}`)
     })
 }
