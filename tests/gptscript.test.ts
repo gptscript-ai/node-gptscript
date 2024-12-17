@@ -51,12 +51,12 @@ describe("gptscript module", () => {
             return
         }
 
-        let models = await g.listModels(["github.com/gptscript-ai/claude3-anthropic-provider"], ["github.com/gptscript-ai/claude3-anthropic-provider/credential:ANTHROPIC_API_KEY"])
+        const models = await g.listModels(["github.com/gptscript-ai/claude3-anthropic-provider"], ["github.com/gptscript-ai/claude3-anthropic-provider/credential:ANTHROPIC_API_KEY"])
         expect(models).toBeDefined()
-        for (let model of models.split("\n")) {
+        for (const model of models) {
             expect(model).toBeDefined()
-            expect(model.startsWith("claude-3-")).toBe(true)
-            expect(model.endsWith("from github.com/gptscript-ai/claude3-anthropic-provider")).toBe(true)
+            expect(model.id.startsWith("claude-3-")).toBe(true)
+            expect(model.id.endsWith("from github.com/gptscript-ai/claude3-anthropic-provider")).toBe(true)
         }
     }, 60000)
 
@@ -67,12 +67,12 @@ describe("gptscript module", () => {
 
         const newg = new gptscript.GPTScript({DefaultModelProvider: "github.com/gptscript-ai/claude3-anthropic-provider"})
         try {
-            let models = await newg.listModels(undefined, ["github.com/gptscript-ai/claude3-anthropic-provider/credential:ANTHROPIC_API_KEY"])
+            const models = await newg.listModels(undefined, ["github.com/gptscript-ai/claude3-anthropic-provider/credential:ANTHROPIC_API_KEY"])
             expect(models).toBeDefined()
-            for (let model of models.split("\n")) {
+            for (const model of models) {
                 expect(model).toBeDefined()
-                expect(model.startsWith("claude-3-")).toBe(true)
-                expect(model.endsWith("from github.com/gptscript-ai/claude3-anthropic-provider")).toBe(true)
+                expect(model.id.startsWith("claude-3-")).toBe(true)
+                expect(model.id.endsWith("from github.com/gptscript-ai/claude3-anthropic-provider")).toBe(true)
             }
         } finally {
             newg.close()

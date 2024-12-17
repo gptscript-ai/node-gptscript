@@ -168,18 +168,19 @@ export class GPTScript {
         }
     }
 
-    listModels(providers?: string[], credentialOverrides?: string[]): Promise<string> {
+    async listModels(providers?: string[], credentialOverrides?: string[]): Promise<Array<Model>> {
         if (this.opts.DefaultModelProvider) {
             if (!providers) {
                 providers = []
             }
             providers.push(this.opts.DefaultModelProvider)
         }
-        return this.runBasicCommand("list-models", {
+        const result = await this.runBasicCommand("list-models", {
             "providers": providers,
             "env": this.opts.Env,
             "credentialOverrides": credentialOverrides
         })
+        return await JSON.parse(result) as Array<Model>
     }
 
     version(): Promise<string> {
@@ -1227,6 +1228,34 @@ export type Credential = {
     ephemeral: boolean
     expiresAt?: Date | undefined
     refreshToken?: string | undefined
+}
+
+// Types for OpenAI API-compatible models
+
+export type Permission = {
+    created: number,
+    id: string,
+    object: string,
+    allow_create_engine: boolean,
+    allow_sampling: boolean,
+    allow_logprobs: boolean,
+    allow_search_indices: boolean,
+    allow_view: boolean,
+    allow_fine_tuning: boolean,
+    organization: string,
+    group: any,
+    is_blocking: boolean,
+}
+
+export type Model = {
+    created: number,
+    id: string,
+    object: string,
+    owned_by: string,
+    permission: Array<Permission>,
+    root: string,
+    parent: string,
+    metadata: Record<string, string>,
 }
 
 // for internal use only
