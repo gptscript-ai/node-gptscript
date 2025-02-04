@@ -398,7 +398,11 @@ export class GPTScript {
         return JSON.parse(result) as Array<DatasetMeta>
     }
 
-    async addDatasetElements(elements: Array<DatasetElement>, opts: {name?: string, description?: string, datasetID?: string}): Promise<string> {
+    async addDatasetElements(elements: Array<DatasetElement>, opts: {
+        name?: string,
+        description?: string,
+        datasetID?: string
+    }): Promise<string> {
         const serializableElements = elements.map(e => {
             return {
                 name: e.name,
@@ -1136,9 +1140,15 @@ export interface PromptFrame {
     type: RunEventType.Prompt
     time: string
     message: string
-    fields: string[]
+    fields: Field[]
     sensitive: boolean
     metadata: Record<string, string>
+}
+
+export interface Field {
+    name: string
+    description?: string
+    sensitive?: boolean
 }
 
 export type Frame = RunFrame | CallFrame | PromptFrame
@@ -1322,19 +1332,19 @@ export function createServer(listener: http.RequestListener<typeof http.Incoming
     const gptscriptCertB64 = process.env.GPTSCRIPT_CERT
 
     if (!certB64) {
-        console.log('Missing CERT env var')
+        console.log("Missing CERT env var")
         process.exit(1)
     } else if (!privateKeyB64) {
-        console.log('Missing PRIVATE_KEY env var')
+        console.log("Missing PRIVATE_KEY env var")
         process.exit(1)
     } else if (!gptscriptCertB64) {
-        console.log('Missing GPTSCRIPT_CERT env var')
+        console.log("Missing GPTSCRIPT_CERT env var")
         process.exit(1)
     }
 
-    const cert = Buffer.from(certB64, 'base64').toString('utf-8')
-    const privateKey = Buffer.from(privateKeyB64, 'base64').toString('utf-8')
-    const gptscriptCert = Buffer.from(gptscriptCertB64, 'base64').toString('utf-8')
+    const cert = Buffer.from(certB64, "base64").toString("utf-8")
+    const privateKey = Buffer.from(privateKeyB64, "base64").toString("utf-8")
+    const gptscriptCert = Buffer.from(gptscriptCertB64, "base64").toString("utf-8")
 
     const options = {
         key: privateKey,
@@ -1350,11 +1360,11 @@ export function createServer(listener: http.RequestListener<typeof http.Incoming
 export function startServer(server: https.Server) {
     const port = process.env.PORT
     if (!port) {
-        console.log('Missing PORT env var')
+        console.log("Missing PORT env var")
         process.exit(1)
     }
 
-    server.listen(parseInt(port, 10), '127.0.0.1', () => {
+    server.listen(parseInt(port, 10), "127.0.0.1", () => {
         console.log(`Server listening on port ${port}`)
     })
 }

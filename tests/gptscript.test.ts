@@ -116,7 +116,7 @@ describe("gptscript module", () => {
 
         expect(run).toBeDefined()
         expect(await run.text()).toContain("Understood.")
-    })
+    }, 10000)
 
     test("evaluate executes and streams a prompt correctly", async () => {
         let out = ""
@@ -129,7 +129,7 @@ describe("gptscript module", () => {
         }
 
         const run = await g.evaluate(t, opts)
-        run.on(gptscript.RunEventType.CallProgress, (data: gptscript.CallFrame) => {
+        run.on(gptscript.RunEventType.CallFinish, data => {
             for (let output of data.output) out += `system: ${output.content}`
         })
 
@@ -210,10 +210,11 @@ describe("gptscript module", () => {
         }
 
         const run = await g.run(testGptPath, opts)
-        run.on(gptscript.RunEventType.CallProgress, data => {
+        run.on(gptscript.RunEventType.CallFinish, data => {
             for (let output of data.output) out += `system: ${output.content}`
         })
-        await run.text()
+
+        expect(await run.text()).toContain("Calvin Coolidge")
         err = run.err
 
         for (let c in run.calls) {
@@ -231,7 +232,6 @@ describe("gptscript module", () => {
 
     test("run executes and streams a file with global tools correctly", async () => {
         let out = ""
-        let err = undefined
         const testGptPath = path.join(__dirname, "fixtures", "global-tools.gpt")
         const opts = {
             disableCache: true,
@@ -239,15 +239,14 @@ describe("gptscript module", () => {
         }
 
         const run = await g.run(testGptPath, opts)
-        run.on(gptscript.RunEventType.CallProgress, data => {
+        run.on(gptscript.RunEventType.CallFinish, data => {
             for (let output of data.output) out += `system: ${output.content}`
         })
-        await run.text()
-        err = run.err
 
+        expect(await run.text()).toContain("Hello!")
+        expect(run.err).toEqual("")
         expect(out).toContain("Hello!")
-        expect(err).toEqual("")
-    }, 30000)
+    }, 60000)
 
     test("aborting a run is reported correctly", async () => {
         let errMessage = ""
@@ -627,7 +626,7 @@ describe("gptscript module", () => {
         expect(await run.text()).toContain("Lake Huron")
         expect(run.err).toEqual("")
         expect(run.state).toEqual(gptscript.RunState.Continue)
-    }, 10000)
+    }, 15000)
 
     test("nextChat on tool providing chat state", async () => {
         const t = {
@@ -651,7 +650,7 @@ describe("gptscript module", () => {
         expect(await run.text()).toContain("Austin")
         expect(run.err).toEqual("")
         expect(run.state).toEqual(gptscript.RunState.Continue)
-    }, 10000)
+    }, 15000)
 
     test("confirm", async () => {
         const t = {
@@ -702,11 +701,11 @@ describe("gptscript module", () => {
         run.on(gptscript.RunEventType.Prompt, async (data: gptscript.PromptFrame) => {
             expect(data.message).toContain("first name")
             expect(data.fields.length).toEqual(1)
-            expect(data.fields[0]).toEqual("first name")
+            expect(data.fields[0].name).toEqual("first name")
             expect(data.sensitive).toBeFalsy()
 
             promptFound = true
-            await g.promptResponse({id: data.id, responses: {[data.fields[0]]: "Clicky"}})
+            await g.promptResponse({id: data.id, responses: {[data.fields[0].name]: "Clicky"}})
         })
 
         expect(await run.text()).toContain("Clicky")
@@ -722,12 +721,12 @@ describe("gptscript module", () => {
         })
         run.on(gptscript.RunEventType.Prompt, async (data: gptscript.PromptFrame) => {
             expect(data.fields.length).toEqual(1)
-            expect(data.fields[0]).toEqual("first name")
+            expect(data.fields[0].name).toEqual("first name")
             expect(data.metadata).toEqual({key: "value"})
             expect(data.sensitive).toBeFalsy()
 
             promptFound = true
-            await g.promptResponse({id: data.id, responses: {[data.fields[0]]: "Clicky"}})
+            await g.promptResponse({id: data.id, responses: {[data.fields[0].name]: "Clicky"}})
         })
 
         expect(await run.text()).toContain("Clicky")
@@ -968,6 +967,8 @@ describe("gptscript module", () => {
         } catch (e) {
             throw new Error("failed to list datasets: " + e)
         }
+
+        client.close()
     }, 60000)
 
     test("create and delete workspace", async () => {
