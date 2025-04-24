@@ -1238,6 +1238,7 @@ export type Credential = {
     ephemeral: boolean
     expiresAt?: Date | undefined
     refreshToken?: string | undefined
+    checkParam?: string | undefined
 }
 
 // Types for OpenAI API-compatible models
@@ -1277,6 +1278,7 @@ type cred = {
     ephemeral: boolean
     expiresAt: string | undefined
     refreshToken: string | undefined
+    checkParam: string | undefined
 }
 
 export function credentialToJSON(c: Credential): string {
@@ -1289,7 +1291,8 @@ export function credentialToJSON(c: Credential): string {
         env: c.env,
         ephemeral: c.ephemeral,
         expiresAt: expiresAt,
-        refreshToken: c.refreshToken
+        refreshToken: c.refreshToken,
+        checkParam: c.checkParam
     } as cred)
 }
 
@@ -1302,7 +1305,8 @@ function jsonToCredential(cred: string): Credential {
         env: c.env,
         ephemeral: c.ephemeral,
         expiresAt: c.expiresAt ? new Date(c.expiresAt) : undefined,
-        refreshToken: c.refreshToken
+        refreshToken: c.refreshToken,
+        checkParam: c.checkParam
     }
 }
 
