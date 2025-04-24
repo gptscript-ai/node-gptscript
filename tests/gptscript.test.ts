@@ -843,6 +843,7 @@ describe("gptscript module", () => {
                 ephemeral: false,
                 expiresAt: new Date(Date.now() + 5000), // 5 seconds from now
                 type: CredentialType.Tool,
+                checkParam: "my-check-param",
             })
         } catch (e) {
             throw new Error("failed to create credential: " + e)
@@ -856,6 +857,8 @@ describe("gptscript module", () => {
             const result = await g.revealCredential(["default"], name)
             expect(result.env["TEST"]).toEqual(value)
             expect(result.expiresAt!.valueOf()).toBeLessThan(new Date().valueOf())
+            expect(result.type).toEqual(CredentialType.Tool)
+            expect(result.checkParam).toEqual("my-check-param")
         } catch (e) {
             throw new Error("failed to reveal credential: " + e)
         }
