@@ -6,7 +6,7 @@ import {DownloaderHelper} from 'node-downloader-helper';
 import fs from 'fs';
 import path from 'path';
 import AdmZip from 'adm-zip';
-import tar from 'tar';
+import * as tar from 'tar';
 import util from 'util';
 import child_process from 'child_process'
 

@@ -33,13 +33,13 @@
     "@types/sync-fetch": "^0.4.3",
     "adm-zip": "^0.5.10",
     "node-downloader-helper": "^2.1.9",
-    "tar": "^6.2.0"
+    "tar": "^7.5.13"
   },
   "devDependencies": {
     "@babel/core": "^7.24.5",
     "@babel/preset-env": "^7.24.5",
     "@babel/preset-typescript": "^7.24.1",
-    "@swc/cli": "^0.3.9",
+    "@swc/cli": "^0.8.1",
     "@swc/core": "^1.4.2",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.12.8",
